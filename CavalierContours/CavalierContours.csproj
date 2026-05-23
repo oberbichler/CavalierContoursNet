@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>CavalierContours</PackageId>
+    <Title>CavalierContours.NET</Title>
+    <Authors>Thomas Oberbichler</Authors>
+    <Description>A high performance pure C# 2D polyline offset and boolean library (port of Cavalier Contours).</Description>
+    <PackageLicenseExpression>ISC</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/oberbichler/CavalierContoursNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>polyline;offset;boolean;geometry;2d;cavalier-contours</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

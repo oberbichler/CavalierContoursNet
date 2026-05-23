@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 220" font-family="system-ui, sans-serif" font-size="13">
+  <rect width="520" height="220" fill="#fdfdfd" rx="6"/>
+
+  <!-- === Column 1: b=0 (straight) === -->
+  <line x1="40" y1="75" x2="120" y2="75" stroke="#1565C0" stroke-width="2"/>
+  <text x="35" y="63" text-anchor="middle" fill="#555" font-size="10">v1</text>
+  <text x="125" y="63" text-anchor="middle" fill="#555" font-size="10">v2</text>
+  <text x="80" y="56" text-anchor="middle" fill="#E53935" font-size="9">0°</text>
+  <text x="80" y="150" text-anchor="middle" fill="#333" font-size="12">b = 0</text>
+  <text x="80" y="167" text-anchor="middle" fill="#888" font-size="10">straight</text>
+  <circle cx="40" cy="75" r="4" fill="#1565C0"/>
+  <circle cx="120" cy="75" r="4" fill="#1565C0"/>
+
+  <!-- === Column 2: b=0.414 (90 deg arc, ccw, upward) === -->
+  <circle cx="210" cy="75" r="1.5" fill="#999"/>
+  <line x1="210" y1="75" x2="170" y2="75" stroke="#bbb" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <line x1="210" y1="75" x2="250" y2="75" stroke="#bbb" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <path d="M 199 75 A 11 11 0 0 0 221 75" fill="none" stroke="#E53935" stroke-width="1.2"/>
+  <text x="210" y="57" text-anchor="middle" fill="#E53935" font-size="9">90°</text>
+  <path d="M 170 75 A 56.6 56.6 0 0 0 250 75" fill="none" stroke="#1565C0" stroke-width="2"/>
+  <line x1="170" y1="75" x2="250" y2="75" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="165" y="63" text-anchor="middle" fill="#555" font-size="10">v1</text>
+  <text x="255" y="63" text-anchor="middle" fill="#555" font-size="10">v2</text>
+  <text x="210" y="150" text-anchor="middle" fill="#333" font-size="12">b = 0.414</text>
+  <text x="210" y="167" text-anchor="middle" fill="#888" font-size="10">90° arc</text>
+  <circle cx="170" cy="75" r="4" fill="#1565C0"/>
+  <circle cx="250" cy="75" r="4" fill="#1565C0"/>
+
+  <!-- === Column 3: b=1.0 (semicircle, 180 deg, ccw, upward) === -->
+  <circle cx="340" cy="75" r="1.5" fill="#999"/>
+  <line x1="340" y1="75" x2="300" y2="75" stroke="#bbb" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <line x1="340" y1="75" x2="380" y2="75" stroke="#bbb" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <path d="M 329 75 A 11 11 0 0 0 351 75" fill="none" stroke="#E53935" stroke-width="1.2"/>
+  <text x="340" y="57" text-anchor="middle" fill="#E53935" font-size="9">180°</text>
+  <path d="M 300 75 A 40 40 0 0 0 380 75" fill="none" stroke="#1565C0" stroke-width="2"/>
+  <line x1="300" y1="75" x2="380" y2="75" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="295" y="63" text-anchor="middle" fill="#555" font-size="10">v1</text>
+  <text x="385" y="63" text-anchor="middle" fill="#555" font-size="10">v2</text>
+  <text x="340" y="150" text-anchor="middle" fill="#333" font-size="12">b = 1.0</text>
+  <text x="340" y="167" text-anchor="middle" fill="#888" font-size="10">semicircle</text>
+  <circle cx="300" cy="75" r="4" fill="#1565C0"/>
+  <circle cx="380" cy="75" r="4" fill="#1565C0"/>
+
+  <!-- === Column 4: b=-0.414 (90 deg arc, clockwise, downward) === -->
+  <circle cx="470" cy="75" r="1.5" fill="#999"/>
+  <line x1="470" y1="75" x2="430" y2="75" stroke="#bbb" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <line x1="470" y1="75" x2="510" y2="75" stroke="#bbb" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <path d="M 459 75 A 11 11 0 0 1 481 75" fill="none" stroke="#E53935" stroke-width="1.2"/>
+  <text x="470" y="96" text-anchor="middle" fill="#E53935" font-size="9">-90°</text>
+  <path d="M 430 75 A 56.6 56.6 0 0 1 510 75" fill="none" stroke="#1565C0" stroke-width="2"/>
+  <line x1="430" y1="75" x2="510" y2="75" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="425" y="63" text-anchor="middle" fill="#555" font-size="10">v1</text>
+  <text x="515" y="63" text-anchor="middle" fill="#555" font-size="10">v2</text>
+  <text x="470" y="150" text-anchor="middle" fill="#333" font-size="12">b = -0.414</text>
+  <text x="470" y="167" text-anchor="middle" fill="#888" font-size="10">clockwise</text>
+  <circle cx="430" cy="75" r="4" fill="#1565C0"/>
+  <circle cx="510" cy="75" r="4" fill="#1565C0"/>
+
+  <!-- formula -->
+  <text x="260" y="208" text-anchor="middle" fill="#aaa" font-size="10">bulge = tan(sweep_angle / 4)</text>
+</svg>

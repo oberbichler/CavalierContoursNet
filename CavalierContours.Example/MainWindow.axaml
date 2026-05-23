@@ -1,0 +1,129 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:CavalierContours.Example"
+        x:Class="CavalierContours.Example.MainWindow"
+        Title="CavalierContours - Interactive Demo"
+        Width="1000" Height="700"
+        WindowStartupLocation="CenterScreen">
+    <Grid ColumnDefinitions="*, 4, 320" Margin="10">
+        <!-- Left panel - drawing canvas -->
+        <Border Grid.Column="0" BorderBrush="#B0BEC5" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+            <local:PolylineCanvas x:Name="Canvas" />
+        </Border>
+
+        <!-- Adjustable Splitter -->
+        <GridSplitter Grid.Column="1" Width="4" Background="#CFD8DC" ResizeBehavior="PreviousAndNext" />
+
+        <!-- Right panel - control sidebar -->
+        <ScrollViewer Grid.Column="2" Margin="10,0,0,0">
+            <StackPanel Spacing="12">
+                
+                <!-- Title & Help -->
+                <TextBlock Text="Cavalier Contours Demo" FontSize="18" FontWeight="Bold" Foreground="#1565C0" />
+                <TextBlock Text="Left-click to add vertices. Drag vertices to edit. 'b=' text shows vertices with arcs." FontSize="11" TextWrapping="Wrap" Foreground="#555555" />
+                
+                <Separator Height="1" Background="#CFD8DC" />
+
+                <!-- Group: Selected Polyline -->
+                <TextBlock Text="Active Polyline" FontWeight="SemiBold" FontSize="13" />
+                <ComboBox x:Name="CboActivePolyline" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="OnActivePolylineChanged">
+                    <ComboBoxItem Content="Polyline A (Blue)" />
+                    <ComboBoxItem Content="Polyline B (Orange)" />
+                </ComboBox>
+                
+                <CheckBox x:Name="ChkIsClosed" Content="Is Closed" IsChecked="True" Checked="OnIsClosedChanged" Unchecked="OnIsClosedChanged" />
+                
+                <Grid ColumnDefinitions="*, *">
+                    <Button Content="Clear Active" Grid.Column="0" Click="OnClearActive" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Background="#FFE0E0" Foreground="#C62828" Margin="0,0,3,0" />
+                    <Button x:Name="BtnDeleteVertex" Content="Delete Vertex" Grid.Column="1" Click="OnDeleteVertex" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsEnabled="False" Margin="3,0,0,0" />
+                </Grid>
+                <ComboBox x:Name="CboSampleShape" SelectedIndex="-1" HorizontalAlignment="Stretch" Margin="0,2,0,0" SelectionChanged="OnSampleShapeSelected">
+                    <ComboBox.PlaceholderText>Load Sample Shape...</ComboBox.PlaceholderText>
+                    <ComboBoxItem Content="Rectangle" />
+                    <ComboBoxItem Content="Rounded Rectangle" />
+                    <ComboBoxItem Content="Circle" />
+                    <ComboBoxItem Content="Star" />
+                    <ComboBoxItem Content="Hourglass" />
+                    <ComboBoxItem Content="L-Shape" />
+                    <ComboBoxItem Content="Arrow" />
+                    <ComboBoxItem Content="Gear (8 teeth)" />
+                </ComboBox>
+
+                <Separator Height="1" Background="#CFD8DC" />
+
+                <!-- Group: Selected Vertex properties -->
+                <TextBlock Text="Selected Vertex Properties" FontWeight="SemiBold" FontSize="13" />
+                <StackPanel x:Name="VertexPropsPanel" Spacing="8" IsEnabled="False">
+                    <Grid ColumnDefinitions="50, *" RowDefinitions="Auto, Auto">
+                        <TextBlock Text="X:" VerticalAlignment="Center" Grid.Row="0" Grid.Column="0" />
+                        <TextBox x:Name="TxtX" Grid.Row="0" Grid.Column="1" Margin="0,0,0,5" TextChanged="OnVertexCoordsChanged" />
+
+                        <TextBlock Text="Y:" VerticalAlignment="Center" Grid.Row="1" Grid.Column="0" />
+                        <TextBox x:Name="TxtY" Grid.Row="1" Grid.Column="1" TextChanged="OnVertexCoordsChanged" />
+                    </Grid>
+                    
+                    <TextBlock Text="Arc Bulge (0 = straight):" FontSize="11" />
+                    <Grid ColumnDefinitions="*, 60">
+                        <Slider x:Name="SldBulge" Minimum="-3.0" Maximum="3.0" Value="0.0" ValueChanged="OnBulgeSliderChanged" Grid.Column="0" Margin="0,0,5,0" />
+                        <TextBox x:Name="TxtBulge" Text="0.0" TextChanged="OnBulgeTextChanged" Grid.Column="1" />
+                    </Grid>
+                    <TextBlock Text="Bulge tip: 1.0 (semi-circle), ~0.414 (90 deg arc)." FontSize="10" Foreground="#777777" />
+                </StackPanel>
+
+                <Separator Height="1" Background="#CFD8DC" />
+
+                <!-- Group: Offset operations -->
+                <TextBlock Text="Parallel Offset (Green Dashed)" FontWeight="SemiBold" FontSize="13" />
+                <TextBlock Text="Distance:" FontSize="11" />
+                <Grid ColumnDefinitions="*, 60">
+                    <Slider x:Name="SldOffsetDist" Minimum="-120.0" Maximum="120.0" Value="20" Grid.Column="0" Margin="0,0,5,0" />
+                    <TextBox x:Name="TxtOffsetDist" Text="20" Grid.Column="1" />
+                </Grid>
+
+                <TextBlock Text="Rings Count:" FontSize="11" Margin="0,5,0,0" />
+                <Grid ColumnDefinitions="*, 60">
+                    <Slider x:Name="SldRingsCount" Minimum="1" Maximum="10" Value="1" IsSnapToTickEnabled="True" TickFrequency="1" Grid.Column="0" Margin="0,0,5,0" />
+                    <TextBox x:Name="TxtRingsCount" Text="1" Grid.Column="1" />
+                </Grid>
+
+                <CheckBox x:Name="ChkSelfIntersects" Content="Handle Self-Intersects" IsChecked="True" Margin="0,2,0,0" />
+
+                <Separator Height="1" Background="#CFD8DC" />
+
+                <!-- Group: Boolean operations -->
+                <TextBlock Text="Boolean Operations (A &amp; B) (Purple Fill)" FontWeight="SemiBold" FontSize="13" />
+                <Grid ColumnDefinitions="80, *" Margin="0,2">
+                    <TextBlock Text="Operation:" VerticalAlignment="Center" Grid.Column="0" />
+                    <ComboBox x:Name="CboBooleanOp" SelectedIndex="0" HorizontalAlignment="Stretch" Grid.Column="1">
+                        <ComboBoxItem Content="Union (Or)" />
+                        <ComboBoxItem Content="Intersection (And)" />
+                        <ComboBoxItem Content="Difference (A - B)" />
+                        <ComboBoxItem Content="Exclusive Or (Xor)" />
+                    </ComboBox>
+                </Grid>
+                <Button Content="Execute Boolean" Click="OnExecuteBoolean" Background="#9C27B0" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="SemiBold" />
+
+                <Separator Height="1" Background="#CFD8DC" />
+
+                <!-- Group: Info -->
+                <TextBlock Text="Active Polyline Stats" FontWeight="SemiBold" FontSize="13" />
+                <Grid ColumnDefinitions="90, *" RowDefinitions="Auto, Auto, Auto">
+                    <TextBlock Text="Vertex Count:" Grid.Row="0" Grid.Column="0" Foreground="#555555" Margin="0,0,0,3" />
+                    <TextBlock x:Name="LblVertexCount" Text="0" Grid.Row="0" Grid.Column="1" FontWeight="Bold" Margin="0,0,0,3" />
+
+                    <TextBlock Text="Area:" Grid.Row="1" Grid.Column="0" Foreground="#555555" Margin="0,0,0,3" />
+                    <TextBlock x:Name="LblArea" Text="0.00" Grid.Row="1" Grid.Column="1" FontWeight="Bold" Margin="0,0,0,3" />
+
+                    <TextBlock Text="Path Length:" Grid.Row="2" Grid.Column="0" Foreground="#555555" />
+                    <TextBlock x:Name="LblLength" Text="0.00" Grid.Row="2" Grid.Column="1" FontWeight="Bold" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*, *">
+                    <Button Content="Reset View" Grid.Column="0" Click="OnResetView" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,3,0" />
+                    <Button Content="Clear Overlay" Grid.Column="1" Click="OnClearResults" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="3,0,0,0" />
+                </Grid>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

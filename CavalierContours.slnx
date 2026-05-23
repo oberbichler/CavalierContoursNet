@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="CavalierContours.Example/CavalierContours.Example.csproj" />
+  <Project Path="CavalierContours.Tests/CavalierContours.Tests.csproj" />
+  <Project Path="CavalierContours/CavalierContours.csproj" />
+</Solution>
