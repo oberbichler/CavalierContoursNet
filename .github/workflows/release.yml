@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release-Version (z. B. 1.0.0, 1.0.0-beta.1)'
+        description: 'Release version (e.g., 1.0.0, 1.0.0-beta.1)'
         required: true
         type: string
       draft:
-        description: 'Als Entwurf (Draft) auf GitHub erstellen?'
+        description: 'Create as draft on GitHub?'
         required: true
         type: boolean
         default: false
 
-# Erforderliche Berechtigungen zum Schreiben von Tags und Releases
+# Required permissions to write tags and releases
 permissions:
   contents: write
 
@@ -22,26 +22,26 @@ jobs:
     name: Build, Test & Publish
     runs-on: ubuntu-latest
     steps:
-      - name: Code auschecken
-        uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Wichtig für automatische Release-Notes
+          fetch-depth: 0 # Important for automatic release notes
 
-      - name: .NET SDK einrichten
-        uses: actions/setup-dotnet@v5
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      - name: Abhängigkeiten wiederherstellen
+      - name: Restore dependencies
         run: dotnet restore
 
-      - name: Projekt bauen
+      - name: Build project
         run: dotnet build --no-restore --configuration Release
 
-      - name: Tests ausführen
+      - name: Run tests
         run: dotnet test --no-build --configuration Release
 
-      - name: NuGet-Paket erstellen
+      - name: Create NuGet package
         run: |
           dotnet pack CavalierContours/CavalierContours.csproj \
             --configuration Release \
@@ -49,7 +49,7 @@ jobs:
             -p:Version=${{ github.event.inputs.version }} \
             --output artifacts/
 
-      - name: Auf NuGet.org veröffentlichen
+      - name: Publish to NuGet.org
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
@@ -58,14 +58,14 @@ jobs:
             --source "https://api.nuget.org/v3/index.json" \
             --skip-duplicate
 
-      - name: Git Tag erstellen und pushen
+      - name: Create and push Git tag
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
           git push origin "v${{ github.event.inputs.version }}"
 
-      - name: GitHub Release erstellen
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ github.event.inputs.version }}"
