@@ -81,11 +81,11 @@ namespace CavalierContours.Core
                 return LineCircleIntr<T>.NoIntersect;
             }
 
-            T invA2B2 = T.One / a2_b2;
             // Adding h and k back to the solution terms (shifting from origin back to real
-            // coordinates).
-            T x0 = -a * c * invA2B2 + h;
-            T y0 = -b * c * invA2B2 + k;
+            // coordinates). Note 0.8.0 divides here; the reciprocal-multiply form was only
+            // introduced in 0.9.0 and rounds differently.
+            T x0 = -a * c / a2_b2 + h;
+            T y0 = -b * c / a2_b2 + k;
 
             if (shortestDist >= radius)
             {
@@ -93,10 +93,10 @@ namespace CavalierContours.Core
                 return LineCircleIntr<T>.TangentIntersect(tangentT);
             }
 
-            T d = r2 - c2 * invA2B2;
+            T d = r2 - c2 / a2_b2;
             // Taking abs avoids NaN if round-off makes d slightly negative after shortestDist
             // compared less than radius above.
-            T mult = T.Sqrt(T.Abs(d * invA2B2));
+            T mult = T.Sqrt(T.Abs(d / a2_b2));
 
             var point1 = new Vector2<T>(x0 + b * mult, y0 - a * mult);
             var point2 = new Vector2<T>(x0 - b * mult, y0 + a * mult);

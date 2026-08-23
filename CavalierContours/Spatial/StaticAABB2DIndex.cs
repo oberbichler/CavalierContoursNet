@@ -160,7 +160,22 @@ namespace CavalierContours.Spatial
                 hilbertValues[i] = HilbertXyToIndex(x, y);
             }
 
-            Sort(hilbertValues, _boxes, _indices, 0, _numItems - 1, _nodeSize);
+            // Sorting cannot improve node grouping when every box maps to the same Hilbert
+            // value. Rare, but the check exits on the first compare in the common case.
+            bool allSameHilbertValue = true;
+            for (int i = 1; i < _numItems; i++)
+            {
+                if (hilbertValues[i] != hilbertValues[0])
+                {
+                    allSameHilbertValue = false;
+                    break;
+                }
+            }
+
+            if (!allSameHilbertValue)
+            {
+                RadixSort(hilbertValues, _boxes, _indices, 0, _numItems - 1, _nodeSize, 1u << 31);
+            }
 
             int pos = 0;
             for (int levelIdx = 0; levelIdx < _levelBounds.Length - 1; levelIdx++)
@@ -254,48 +269,89 @@ namespace CavalierContours.Spatial
             return (i1 << 1) | i0;
         }
 
-        private static void Sort(
+        /// <summary>
+        /// MSB-first binary radix sort over the Hilbert values, carrying the boxes and indices
+        /// along. Port of <c>radix_sort</c> in static_aabb2d_index 2.1.0.
+        /// </summary>
+        /// <remarks>
+        /// A quicksort would produce a valid but different permutation of the items within a
+        /// node, which propagates into the order in which segment pairs reach the intersection
+        /// routines and from there into the last bits of the results.
+        /// </remarks>
+        private static void RadixSort(
             uint[] values,
             AABB<T>[] boxes,
             int[] indices,
             int left,
             int right,
-            int nodeSize)
+            int nodeSize,
+            uint bit)
         {
             Debug.Assert(left <= right);
 
-            if (left / nodeSize >= right / nodeSize)
-            {
-                return;
-            }
-
-            int mid = (left + right) / 2;
-            uint pivot = values[mid];
-            int i = left - 1;
-            int j = right + 1;
+            int emptyPartitions = 0;
+            int split;
 
             while (true)
             {
-                do
+                // A same-node range needs no ordering; at bit zero all remaining values are equal.
+                if (left / nodeSize >= right / nodeSize || bit == 0)
                 {
-                    i++;
-                } while (values[i] < pivot);
-
-                do
-                {
-                    j--;
-                } while (values[j] > pivot);
-
-                if (i >= j)
-                {
-                    break;
+                    return;
                 }
 
-                Swap(values, boxes, indices, i, j);
+                int end = right + 1;
+                int i = left;
+                int j = end;
+                while (i < j)
+                {
+                    while (i < j && (values[i] & bit) == 0)
+                    {
+                        i++;
+                    }
+                    while (i < j && (values[j - 1] & bit) != 0)
+                    {
+                        j--;
+                    }
+                    if (i == j)
+                    {
+                        break;
+                    }
+                    Swap(values, boxes, indices, i, j - 1);
+                    i++;
+                    j--;
+                }
+
+                bit >>= 1;
+                if (i == left || i == end)
+                {
+                    emptyPartitions++;
+                    // After two bits fail to split, one scan is cheaper than testing each
+                    // shared bit.
+                    if (emptyPartitions == 2)
+                    {
+                        uint first = values[left];
+                        uint differingBits = 0;
+                        for (int k = left + 1; k <= right; k++)
+                        {
+                            differingBits |= first ^ values[k];
+                        }
+                        if (differingBits == 0)
+                        {
+                            return;
+                        }
+                        bit = 1u << BitOperations.Log2(differingBits);
+                        emptyPartitions = 0;
+                    }
+                    continue;
+                }
+
+                split = i;
+                break;
             }
 
-            Sort(values, boxes, indices, left, j, nodeSize);
-            Sort(values, boxes, indices, j + 1, right, nodeSize);
+            RadixSort(values, boxes, indices, left, split - 1, nodeSize, bit);
+            RadixSort(values, boxes, indices, split, right, nodeSize, bit);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

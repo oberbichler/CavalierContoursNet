@@ -114,7 +114,11 @@ namespace CavalierContours.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector2<T> PointOnCircle<T>(T radius, Vector2<T> center, T angle) where T : struct, IFloatingPointIeee754<T>
         {
-            (T s, T c) = T.SinCos(angle);
+            // Separate Sin and Cos, not T.SinCos: Rust's f64::sin_cos calls sin and cos
+            // individually while Math.SinCos goes to libc sincos, which differs by 1 ulp for
+            // roughly 1 in 700 arguments.
+            T s = T.Sin(angle);
+            T c = T.Cos(angle);
             return new Vector2<T>(center.X + radius * c, center.Y + radius * s);
         }
 
