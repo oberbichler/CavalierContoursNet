@@ -40,11 +40,17 @@ namespace CavalierContours.Spatial
         private readonly AABB<T>[] _boxes;
         private readonly int[] _indices;
         private int _pos;
+        private bool _built;
 
         public StaticAABB2DIndexBuilder(int count) : this(count, 16) { }
 
         public StaticAABB2DIndexBuilder(int count, int nodeSize)
         {
+            // Rust uses usize here, so a negative count is unrepresentable. Without this guard
+            // Math.Ceiling(-1.0 / nodeSize) is 0, the level bounds loop never reaches 1 and the
+            // constructor spins forever.
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+
             _numItems = count;
             if (_numItems == 0)
             {
@@ -106,6 +112,14 @@ namespace CavalierContours.Spatial
 
         public StaticAABB2DIndex<T> Build()
         {
+            // Rust's build(mut self) consumes the builder. Reporting the real reason beats the
+            // misleading "added: 44, expected: 40" that a second call used to produce.
+            if (_built)
+            {
+                throw new InvalidOperationException("this builder has already been built");
+            }
+            _built = true;
+
             if (_pos != _numItems)
             {
                 throw new InvalidOperationException($"Added item count should equal static size given to builder (added: {_pos}, expected: {_numItems})");
