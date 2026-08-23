@@ -27,10 +27,99 @@ namespace CavalierContours.Tests
             var b = new PlineProperties(4, 100.0, 40.0, 0, 0, 10, 10);
             var c = new PlineProperties(4, 25.0, 20.0, 0, 0, 5, 5);
 
-            // Two identical results must not both be matched by a single expected entry.
-            Assert.False(PlineProperties.PropertySetsMatch(new[] { a, b }, new[] { a }));
             Assert.True(PlineProperties.PropertySetsMatch(new[] { a, b }, new[] { a, b }));
             Assert.False(PlineProperties.PropertySetsMatch(new[] { a, b }, new[] { a, c }));
+        }
+
+        /// <summary>
+        /// Pins the injectivity of the matching. Two expected entries that are both within
+        /// epsilon of the *same* result entry must not both consume it — otherwise a completely
+        /// unrelated second result would slip through.
+        /// </summary>
+        [Fact]
+        public void PropertySetsMatchIsInjective()
+        {
+            var a = new PlineProperties(4, 100.0, 40.0, 0, 0, 10, 10);
+            // Within PropCmpEps of a, so it also matches a.
+            var nearA = new PlineProperties(4, 100.00005, 40.0, 0, 0, 10, 10);
+            var bogus = new PlineProperties(4, 7.0, 3.0, 0, 0, 1, 1);
+
+            Assert.True(a.FuzzyEqEps(nearA, PlineProperties.PropCmpEps), "precondition: nearA matches a");
+
+            // Without the consumed-tracking both expected entries would match result[0].
+            Assert.False(PlineProperties.PropertySetsMatch(new[] { a, bogus }, new[] { a, nearA }));
+            Assert.False(PlineProperties.PropertySetsMatchAbsArea(new[] { a, bogus }, new[] { a, nearA }));
+        }
+
+        /// <summary>
+        /// PropertySetsMatchAbsArea is the comparator upstream uses for every boolean operation
+        /// test. It needs the same guarantees as PropertySetsMatch.
+        /// </summary>
+        [Fact]
+        public void PropertySetsMatchAbsAreaRejectsMismatches()
+        {
+            var a = new PlineProperties(4, 100.0, 40.0, 0, 0, 10, 10);
+            var c = new PlineProperties(4, 25.0, 20.0, 0, 0, 5, 5);
+
+            Assert.True(PlineProperties.PropertySetsMatchAbsArea(new[] { a }, new[] { a }));
+            Assert.False(PlineProperties.PropertySetsMatchAbsArea(new[] { a }, new[] { c }));
+            Assert.False(PlineProperties.PropertySetsMatchAbsArea(new[] { a }, System.Array.Empty<PlineProperties>()));
+            Assert.False(PlineProperties.PropertySetsMatchAbsArea(new[] { a, c }, new[] { a, a }));
+
+            // Only the area sign is ignored, nothing else.
+            var negArea = new PlineProperties(4, -100.0, 40.0, 0, 0, 10, 10);
+            Assert.True(PlineProperties.PropertySetsMatchAbsArea(new[] { negArea }, new[] { a }));
+            var negAreaWrongLength = new PlineProperties(4, -100.0, 41.0, 0, 0, 10, 10);
+            Assert.False(PlineProperties.PropertySetsMatchAbsArea(new[] { negAreaWrongLength }, new[] { a }));
+        }
+
+        /// <summary>
+        /// The comparator must be invoked as expected.FuzzyEqEps(result), matching upstream's
+        /// properties_expected.fuzzy_eq_eps(properties_result). The direction is only observable
+        /// through the deliberately asymmetric userdata check, so this pins it.
+        /// </summary>
+        [Fact]
+        public void PropertySetsMatchCallsComparatorInUpstreamArgumentOrder()
+        {
+            var expected = new PlineProperties(4, 100.0, 40.0, 0, 0, 10, 10, 1, 2);
+            var resultWithExtra = new PlineProperties(4, 100.0, 40.0, 0, 0, 10, 10, 1, 2, 3);
+
+            // upstream: every *result* datum must appear in the *expected* list. 3 does not.
+            Assert.False(PlineProperties.PropertySetsMatch(new[] { resultWithExtra }, new[] { expected }));
+            Assert.False(PlineProperties.PropertySetsMatchAbsArea(new[] { resultWithExtra }, new[] { expected }));
+
+            // Swapping the roles is accepted, which is what makes the direction observable.
+            Assert.True(PlineProperties.PropertySetsMatch(new[] { expected }, new[] { resultWithExtra }));
+        }
+
+        /// <summary>
+        /// Pins the upstream userdata semantics, including the blind spot: the check is
+        /// deliberately asymmetric, so a result that *lost* its userdata passes. Do not
+        /// "fix" this without re-verifying every ported expectation.
+        /// </summary>
+        [Fact]
+        public void UserDataComparisonKeepsTheUpstreamBlindSpot()
+        {
+            var expected = new PlineProperties(4, 100.0, 40.0, 0, 0, 10, 10, 4, 117);
+            var resultWithoutUserData = new PlineProperties(4, 100.0, 40.0, 0, 0, 10, 10);
+
+            // Known upstream gap: lost userdata is invisible to this comparator.
+            Assert.True(PlineProperties.PropertySetsMatch(new[] { resultWithoutUserData }, new[] { expected }));
+
+            // Unexpected extra userdata is caught.
+            var resultWithForeign = new PlineProperties(4, 100.0, 40.0, 0, 0, 10, 10, 4, 117, 999);
+            Assert.False(PlineProperties.PropertySetsMatch(new[] { resultWithForeign }, new[] { expected }));
+        }
+
+        [Fact]
+        public void FromPlineCarriesUserDataIntoTheProperties()
+        {
+            var square = PlineBuilder.Closed((0.0, 0.0, 0.0), (10.0, 0.0, 0.0), (10.0, 10.0, 0.0), (0.0, 10.0, 0.0));
+            square.SetUserDataValues(new ulong[] { 4, 117 });
+
+            var props = PlineProperties.FromPline(square, invertArea: false);
+
+            Assert.Equal(new ulong[] { 4, 117 }, props.UserData);
         }
 
         [Fact]
