@@ -78,7 +78,9 @@ namespace CavalierContours.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Equals(Vector2<T> other) => X.Equals(other.X) && Y.Equals(other.Y);
+        // Matches Rust's derived PartialEq: IEEE 754 comparison, so NaN != NaN and 0.0 == -0.0.
+        // T.Equals would treat NaN as equal to itself.
+        public bool Equals(Vector2<T> other) => X == other.X && Y == other.Y;
 
         public override bool Equals(object? obj) => obj is Vector2<T> other && Equals(other);
 

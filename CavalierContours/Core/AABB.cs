@@ -51,10 +51,11 @@ namespace CavalierContours.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // Matches Rust's derived PartialEq: IEEE 754 comparison, so NaN != NaN and 0.0 == -0.0.
         public bool Equals(AABB<T> other)
         {
-            return MinX.Equals(other.MinX) && MinY.Equals(other.MinY) &&
-                   MaxX.Equals(other.MaxX) && MaxY.Equals(other.MaxY);
+            return MinX == other.MinX && MinY == other.MinY &&
+                   MaxX == other.MaxX && MaxY == other.MaxY;
         }
 
         public override bool Equals(object? obj) => obj is AABB<T> other && Equals(other);
