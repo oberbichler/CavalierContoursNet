@@ -68,7 +68,9 @@ namespace CavalierContours.Polyline
 
         public PlineVertex<T>? GetVertex(IPlineSource<T> source, int index)
         {
-            if (index >= VertexCount) return null;
+            // Mirrors Rust's Option-returning get_vertex, whose index is a usize. The unsigned
+            // compare catches negatives too, which would otherwise index the source array.
+            if ((uint)index >= (uint)VertexCount) return null;
 
             if (InvertedDirection)
             {
@@ -146,7 +148,13 @@ namespace CavalierContours.Polyline
             int traverseCount,
             T posEqualEps)
         {
-            Debug.Assert(traverseCount != 0, "traverseCount must be greater than 0");
+            // Upstream uses assert!, which is active in release builds. With Debug.Assert a
+            // release build would silently produce endIndexOffset = -1 and a one vertex view.
+            if (traverseCount == 0)
+            {
+                throw new InvalidOperationException(
+                    "traverseCount must be greater than 0, use CreateOnSingleSegment if the view is all on one segment");
+            }
 
             PlineVertex<T> currentVertex = source.Get(intersectIndex);
             int endIndexOffset;
@@ -173,7 +181,11 @@ namespace CavalierContours.Polyline
         public static PlineViewData<T> FromEntirePline(IPlineSource<T> source)
         {
             int vc = source.VertexCount;
-            Debug.Assert(vc >= 2, "source must have at least 2 vertexes");
+            // Upstream uses assert!, active in release builds.
+            if (vc < 2)
+            {
+                throw new InvalidOperationException("source must have at least 2 vertexes to form view data");
+            }
 
             if (source.IsClosed)
             {
@@ -205,7 +217,11 @@ namespace CavalierContours.Polyline
             }
 
             int vc = source.VertexCount;
-            Debug.Assert(vc >= 2, "source must have at least 2 vertexes");
+            // Upstream uses assert!, active in release builds.
+            if (vc < 2)
+            {
+                throw new InvalidOperationException("source must have at least 2 vertexes to form view data");
+            }
 
             int nextIdx = source.NextWrappingIndex(startIndex);
             if (source.Get(nextIdx).Pos().FuzzyEqEps(startPoint, posEqualEps))
