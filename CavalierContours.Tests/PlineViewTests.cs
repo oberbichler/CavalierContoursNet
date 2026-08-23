@@ -719,5 +719,29 @@ namespace CavalierContours.Tests
                 AssertViewSegmentsMatch(viewData, closedPline, expected, "change start on last segment");
             }
         }
+        /// <summary>
+        /// Added in upstream 0.8.0 together with the collapsed-slice branch in from_slice_points.
+        /// Ported verbatim from tests/test_pline_view.rs at tag 0.8.0.
+        /// </summary>
+        [Fact]
+        public void FromSlicePointsCollapsedAcrossNearVertex()
+        {
+            const double posEqEps = 1e-5;
+            var pline = PlineBuilder.Open(
+                (0.0, 0.0, 0.0),
+                (0.0, posEqEps * 1.1, 0.0),
+                (0.0, -1.0, 0.0));
+
+            var slice = PlineViewData<double>.FromSlicePoints(
+                pline,
+                new Vector2<double>(0.0, 0.0),
+                0,
+                new Vector2<double>(0.0, posEqEps * 0.55),
+                1,
+                posEqEps);
+
+            Assert.Null(slice);
+        }
+
     }
 }

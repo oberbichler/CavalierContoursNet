@@ -295,6 +295,15 @@ namespace CavalierContours.Polyline
             {
                 return CreateOnSingleSegment(source, startIndex, updatedStart, endPoint, posEqualEps);
             }
+            else if (traverseCount == 1
+                && endPoint.FuzzyEqEps(source.Get(endIndex).Pos(), posEqualEps)
+                && updatedStart.Pos().FuzzyEqEps(endPoint, posEqualEps))
+            {
+                // The slice collapsed onto a single point across a near-coincident vertex.
+                // Without this the result is a two vertex view with zero path length, which then
+                // travels into the boolean and offset stitching stages.
+                return null;
+            }
             else
             {
                 return Create(source, startIndex, endPoint, endIndex, updatedStart, traverseCount, posEqualEps);
