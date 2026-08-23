@@ -214,14 +214,40 @@ namespace CavalierContours.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool PointWithinArcSweep<T>(Vector2<T> center, Vector2<T> arcStart, Vector2<T> arcEnd, bool isClockwise, Vector2<T> point, T epsilon) where T : struct, IFloatingPointIeee754<T>
         {
-            if (isClockwise)
+            Debug.Assert(epsilon > T.Zero);
+
+            // The center is the sweep region's apex, so include points within the position
+            // tolerance of it.
+            Vector2<T> pointVector = point - center;
+            if (pointVector.LengthSquared() < epsilon * epsilon)
             {
-                return IsRightOrCoincidentEps(center, arcStart, point, epsilon) && IsLeftOrCoincidentEps(center, arcEnd, point, epsilon);
+                return true;
             }
-            else
+
+            // Construct the sweep boundary vectors and determine which side of each one the
+            // point lies on.
+            Vector2<T> startVector = arcStart - center;
+            Vector2<T> endVector = arcEnd - center;
+            T startCross = startVector.PerpDot(pointVector);
+            T endCross = endVector.PerpDot(pointVector);
+
+            // First test the whole sweep region without tolerance.
+            bool exactlyWithinSweep = isClockwise
+                ? startCross <= T.Zero && endCross >= T.Zero
+                : startCross >= T.Zero && endCross <= T.Zero;
+            if (exactlyWithinSweep)
             {
-                return IsLeftOrCoincidentEps(center, arcStart, point, epsilon) && IsRightOrCoincidentEps(center, arcEnd, point, epsilon);
+                return true;
             }
+
+            // Then give fuzzy inclusion around each forward boundary ray. Scaling epsilon by the
+            // ray length makes the cross product comparison a position-based tolerance. Without
+            // it the effective angular tolerance would be eps/(R*|pointVector|): near zero for
+            // large radii and unbounded for small ones.
+            return FuzzyOnRay(startVector, startCross) || FuzzyOnRay(endVector, endCross);
+
+            bool FuzzyOnRay(Vector2<T> ray, T cross)
+                => ray.Dot(pointVector) >= T.Zero && T.Abs(cross) < epsilon * ray.Length();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
