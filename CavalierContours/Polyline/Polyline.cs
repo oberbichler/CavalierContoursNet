@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using CavalierContours.Core;
@@ -11,7 +12,8 @@ namespace CavalierContours.Polyline
     {
         private readonly List<PlineVertex<T>> _vertexData;
         private bool _isClosed;
-        private readonly List<ulong> _userdata;
+        private readonly List<ulong> _userdata = new();
+        private readonly ReadOnlyCollection<ulong> _userdataView;
 
         public Polyline() : this(false) { }
 
@@ -19,27 +21,32 @@ namespace CavalierContours.Polyline
         {
             _vertexData = new List<PlineVertex<T>>();
             _isClosed = isClosed;
-            _userdata = new List<ulong>();
+            _userdataView = _userdata.AsReadOnly();
         }
 
         public Polyline(int capacity, bool isClosed)
         {
             _vertexData = new List<PlineVertex<T>>(capacity);
             _isClosed = isClosed;
-            _userdata = new List<ulong>();
+            _userdataView = _userdata.AsReadOnly();
         }
 
         public Polyline(IEnumerable<PlineVertex<T>> vertexes, bool isClosed)
         {
             _vertexData = new List<PlineVertex<T>>(vertexes);
             _isClosed = isClosed;
-            _userdata = new List<ulong>();
+            _userdataView = _userdata.AsReadOnly();
         }
 
         public int VertexCount => _vertexData.Count;
         public bool IsClosed => _isClosed;
         public int UserDataCount => _userdata.Count;
-        public IReadOnlyList<ulong> UserDataValues => _userdata.AsReadOnly();
+
+        /// <summary>
+        /// Read-only view over the user data. This is a live view over the backing list, not a
+        /// snapshot: it reflects later mutations. Callers that need a stable copy must take one.
+        /// </summary>
+        public IReadOnlyList<ulong> UserDataValues => _userdataView;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PlineVertex<T> Get(int index) => _vertexData[index];

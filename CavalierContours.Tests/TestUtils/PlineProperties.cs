@@ -193,6 +193,45 @@ namespace CavalierContours.Tests.TestUtils
         }
 
         public static string Render(IReadOnlyList<PlineProperties> set)
-            => "[" + string.Join(",\n ", set.Select(p => p.ToString())) + "]";
+            => "[" + string.Join(",\n  ", set.Select(p => p.ToString())) + "]";
+
+        /// <summary>
+        /// Asserts <see cref="PropertySetsMatch"/> and renders both sets on failure. Upstream
+        /// prints them via <c>eprintln!</c>; use this instead of a bare Assert.True so the
+        /// diagnostic can never be forgotten.
+        /// </summary>
+        public static void AssertSetsMatch(
+            IReadOnlyList<PlineProperties> resultSet,
+            IReadOnlyList<PlineProperties> expectedSet,
+            string context)
+        {
+            if (!PropertySetsMatch(resultSet, expectedSet))
+            {
+                throw new Xunit.Sdk.XunitException(Describe("property sets do not match", resultSet, expectedSet, context));
+            }
+        }
+
+        /// <summary>
+        /// Asserts <see cref="PropertySetsMatchAbsArea"/> and renders both sets on failure.
+        /// </summary>
+        public static void AssertSetsMatchAbsArea(
+            IReadOnlyList<PlineProperties> resultSet,
+            IReadOnlyList<PlineProperties> expectedSet,
+            string context)
+        {
+            if (!PropertySetsMatchAbsArea(resultSet, expectedSet))
+            {
+                throw new Xunit.Sdk.XunitException(Describe("property sets do not match (abs area)", resultSet, expectedSet, context));
+            }
+        }
+
+        private static string Describe(
+            string headline,
+            IReadOnlyList<PlineProperties> resultSet,
+            IReadOnlyList<PlineProperties> expectedSet,
+            string context)
+        {
+            return $"{headline}\n  context:  {context}\n  result:   {Render(resultSet)}\n  expected: {Render(expectedSet)}";
+        }
     }
 }

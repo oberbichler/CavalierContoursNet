@@ -65,7 +65,11 @@ namespace CavalierContours.Tests.TestUtils
             {
                 cycled.AddVertex(input.Get((i + n) % vc));
             }
-            cycled.SetUserDataValues(input.UserDataValues);
+
+            // Userdata is deliberately NOT carried over. Upstream builds the cycled polyline
+            // with Polyline::from_iter, which sets `userdata: Vec::new()` (0.7.0 pline.rs:220).
+            // Copying it here would be stricter than upstream and could turn a ported
+            // expectation that declares a userdata subset into a spurious failure.
             return cycled;
         }
 

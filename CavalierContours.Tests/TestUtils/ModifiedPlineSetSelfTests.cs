@@ -141,17 +141,54 @@ namespace CavalierContours.Tests
             Assert.True(before.FuzzyEqEps(after, PlineProperties.PropCmpEps));
         }
 
+        /// <summary>
+        /// Pins upstream's (inconsistent) userdata handling: the identity and inverted variants
+        /// are produced by cloning and keep their userdata, the cycled variants are produced by
+        /// <c>Polyline::from_iter</c> and lose it.
+        /// </summary>
         [Fact]
-        public void VariantsCarryUserDataForward()
+        public void UserDataFollowsUpstreamPerVariant()
         {
             var input = Square();
             input.SetUserDataValues(new ulong[] { 11, 22 });
 
+            var seen = new List<(ModifiedPlineState State, int UserDataCount)>();
             new ModifiedPlineSet(input, invertDirection: true, cycleIndexPositions: true)
-                .Accept((modified, state) =>
-                    Assert.True(
-                        PlineProperties.UserDataSetsMatch(modified.UserDataValues, new ulong[] { 11, 22 }),
-                        $"userdata lost, state: {state}"));
+                .Accept((modified, state) => seen.Add((state, modified.UserDataCount)));
+
+            foreach (var (state, count) in seen)
+            {
+                int expected = state.CyclePosition == 0 ? 2 : 0;
+                Assert.Equal(expected, count);
+            }
+
+            Assert.Equal(new ulong[] { 11, 22 }, input.UserDataValues);
+        }
+
+        [Fact]
+        public void CycleStartIndexForwardDropsUserDataLikeUpstream()
+        {
+            var input = Square();
+            input.SetUserDataValues(new ulong[] { 11, 22 });
+
+            var cycled = ModifiedPlineSet.CycleStartIndexForward(input, 2);
+
+            Assert.Equal(0, cycled.UserDataCount);
+            Assert.Equal(2, input.UserDataCount);
+        }
+
+        [Fact]
+        public void CloneKeepsUserData()
+        {
+            var input = Square();
+            input.SetUserDataValues(new ulong[] { 11, 22 });
+
+            var clone = ModifiedPlineSet.Clone(input);
+
+            Assert.Equal(new ulong[] { 11, 22 }, clone.UserDataValues);
+
+            clone.SetUserDataValues(new ulong[] { 99 });
+            Assert.Equal(new ulong[] { 11, 22 }, input.UserDataValues);
         }
     }
 }
