@@ -49,9 +49,12 @@ namespace CavalierContours.Core
 
             if (p0.FuzzyEqEps(p1, epsilon))
             {
+                // p0 == p1, test if the point is on the circle, using the average of the points'
+                // x and y values for fuzziness. Compare the distance against the radius, not the
+                // squares: squaring makes the effective tolerance depend on the radius.
                 T xh = (p0.X + p1.X) / two - h;
                 T yk = (p0.Y + p1.Y) / two - k;
-                if ((xh * xh + yk * yk).FuzzyEq(radius * radius, epsilon))
+                if (T.Sqrt(xh * xh + yk * yk).FuzzyEq(radius, epsilon))
                 {
                     return LineCircleIntr<T>.TangentIntersect(T.Zero);
                 }
@@ -78,25 +81,37 @@ namespace CavalierContours.Core
                 return LineCircleIntr<T>.NoIntersect;
             }
 
-            T x0 = -a * c / a2_b2 + h;
-            T y0 = -b * c / a2_b2 + k;
+            T invA2B2 = T.One / a2_b2;
+            // Adding h and k back to the solution terms (shifting from origin back to real
+            // coordinates).
+            T x0 = -a * c * invA2B2 + h;
+            T y0 = -b * c * invA2B2 + k;
 
-            if (shortestDist.FuzzyEq(radius, epsilon))
+            if (shortestDist >= radius)
             {
-                T t = BaseMath.ParametricFromPoint(p0, p1, new Vector2<T>(x0, y0), epsilon);
-                return LineCircleIntr<T>.TangentIntersect(t);
+                T tangentT = BaseMath.ParametricFromPoint(p0, p1, new Vector2<T>(x0, y0), epsilon);
+                return LineCircleIntr<T>.TangentIntersect(tangentT);
             }
 
-            T d = r2 - c2 / a2_b2;
-            T mult = T.Sqrt(T.Abs(d / a2_b2));
+            T d = r2 - c2 * invA2B2;
+            // Taking abs avoids NaN if round-off makes d slightly negative after shortestDist
+            // compared less than radius above.
+            T mult = T.Sqrt(T.Abs(d * invA2B2));
 
-            T xSol1 = x0 + b * mult;
-            T xSol2 = x0 - b * mult;
-            T ySol1 = y0 - a * mult;
-            T ySol2 = y0 + a * mult;
+            var point1 = new Vector2<T>(x0 + b * mult, y0 - a * mult);
+            var point2 = new Vector2<T>(x0 - b * mult, y0 + a * mult);
 
-            T sol1 = BaseMath.ParametricFromPoint(p0, p1, new Vector2<T>(xSol1, ySol1), epsilon);
-            T sol2 = BaseMath.ParametricFromPoint(p0, p1, new Vector2<T>(xSol2, ySol2), epsilon);
+            // Apply the positional epsilon to the intersection positions. Avoid comparing
+            // shortestDist with the radius: that merges points much farther apart than epsilon
+            // when the circle radius is large.
+            if (point1.FuzzyEqEps(point2, epsilon))
+            {
+                T tangentT = BaseMath.ParametricFromPoint(p0, p1, new Vector2<T>(x0, y0), epsilon);
+                return LineCircleIntr<T>.TangentIntersect(tangentT);
+            }
+
+            T sol1 = BaseMath.ParametricFromPoint(p0, p1, point1, epsilon);
+            T sol2 = BaseMath.ParametricFromPoint(p0, p1, point2, epsilon);
 
             (T t0, T t1) = BaseMath.MinMax(sol1, sol2);
             return LineCircleIntr<T>.TwoIntersects(t0, t1);
