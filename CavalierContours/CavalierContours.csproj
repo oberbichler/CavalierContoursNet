@@ -5,7 +5,9 @@
     <Title>CavalierContours.NET</Title>
     <Authors>Thomas Oberbichler</Authors>
     <Description>A high performance pure C# 2D polyline offset and boolean library (port of Cavalier Contours).</Description>
-    <PackageLicenseExpression>ISC</PackageLicenseExpression>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <Copyright>Copyright (c) 2025 Thomas Oberbichler; portions Copyright (c) 2021 Jedidiah Buck McCready</Copyright>
+    <PackageProjectUrl>https://github.com/oberbichler/CavalierContoursNet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/oberbichler/CavalierContoursNet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>polyline;offset;boolean;geometry;2d;cavalier-contours</PackageTags>
@@ -17,6 +19,7 @@
 
   <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="\" />
+    <None Include="../LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
