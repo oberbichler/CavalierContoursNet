@@ -1,22 +1,33 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <PackageId>CavalierContours</PackageId>
     <Title>CavalierContours.NET</Title>
     <Authors>Thomas Oberbichler</Authors>
     <Description>A high performance pure C# 2D polyline offset and boolean library (port of Cavalier Contours).</Description>
-    <PackageLicenseExpression>ISC</PackageLicenseExpression>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <Copyright>Copyright (c) 2025 Thomas Oberbichler; portions Copyright (c) 2021 Jedidiah Buck McCready</Copyright>
+    <PackageProjectUrl>https://github.com/oberbichler/CavalierContoursNet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/oberbichler/CavalierContoursNet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>polyline;offset;boolean;geometry;2d;cavalier-contours</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- TODO(Plan 4): remove once all public members are documented. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="\" />
+    <None Include="../LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

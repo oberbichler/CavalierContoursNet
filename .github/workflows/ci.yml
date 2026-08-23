@@ -10,6 +10,7 @@ jobs:
   build-and-test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
@@ -18,8 +19,27 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
-      - run: dotnet restore
-      - run: dotnet build --no-restore
-      - run: dotnet test --no-build
+      - run: dotnet restore --locked-mode
+
+      - run: dotnet build --no-restore --configuration Release
+
+      - name: Test (net8.0)
+        run: dotnet test --no-build --configuration Release --framework net8.0 --logger "trx;LogFileName=net8.trx" --collect:"XPlat Code Coverage"
+
+      - name: Test (net10.0)
+        run: dotnet test --no-build --configuration Release --framework net10.0 --logger "trx;LogFileName=net10.trx" --collect:"XPlat Code Coverage"
+
+      - name: Pack smoke test
+        if: matrix.os == 'ubuntu-latest'
+        run: dotnet pack CavalierContours/CavalierContours.csproj --configuration Release --no-build -p:Version=0.0.0-ci --output artifacts/
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: '**/TestResults/**'
