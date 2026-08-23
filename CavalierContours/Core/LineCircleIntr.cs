@@ -4,18 +4,59 @@ using System.Runtime.CompilerServices;
 
 namespace CavalierContours.Core
 {
+    /// <summary>
+    /// Discriminates the result cases of finding the intersect between a line segment and a circle.
+    /// </summary>
     public enum LineCircleIntrKind : byte
     {
+        /// <summary>
+        /// No intersects found: the line misses the circle by more than the epsilon, or the
+        /// degenerate segment (a single point) is not on the circle.
+        /// </summary>
         NoIntersect,
+
+        /// <summary>
+        /// One tangent intersect point found: the line touches the circle, or the two candidate
+        /// intersect points are fuzzy equal in position, or a degenerate segment lies on the
+        /// circle. <see cref="LineCircleIntr{T}.T0"/> holds the line segment parametric value for
+        /// where the intersect point is; <see cref="LineCircleIntr{T}.T1"/> is unused.
+        /// </summary>
         TangentIntersect,
+
+        /// <summary>
+        /// Simple case of two intersect points found: the line passes through the circle.
+        /// <see cref="LineCircleIntr{T}.T0"/> and <see cref="LineCircleIntr{T}.T1"/> hold the line
+        /// segment parametric values for the first and second intersect point, ordered ascending.
+        /// </summary>
         TwoIntersects
     }
 
+    /// <summary>
+    /// Holds the result of finding the intersect between a line segment and a circle.
+    /// </summary>
+    /// <typeparam name="T">Floating point type of the parametric values.</typeparam>
+    /// <remarks>
+    /// Which fields are meaningful depends on <see cref="Kind"/>; see the individual
+    /// <see cref="LineCircleIntrKind"/> members.
+    /// </remarks>
     public readonly struct LineCircleIntr<T> : IEquatable<LineCircleIntr<T>>
         where T : struct, IFloatingPointIeee754<T>
     {
+        /// <summary>
+        /// The result case this value represents.
+        /// </summary>
         public readonly LineCircleIntrKind Kind;
+
+        /// <summary>
+        /// Holds the line segment parametric value for where the (first) intersect point is.
+        /// Unused for <see cref="LineCircleIntrKind.NoIntersect"/>.
+        /// </summary>
         public readonly T T0;
+
+        /// <summary>
+        /// Holds the line segment parametric value for where the second intersect point is.
+        /// Meaningful only for <see cref="LineCircleIntrKind.TwoIntersects"/>.
+        /// </summary>
         public readonly T T1;
 
         private LineCircleIntr(LineCircleIntrKind kind, T t0, T t1)
@@ -25,10 +66,43 @@ namespace CavalierContours.Core
             T1 = t1;
         }
 
+        /// <summary>
+        /// Gets a result representing <see cref="LineCircleIntrKind.NoIntersect"/>.
+        /// </summary>
         public static LineCircleIntr<T> NoIntersect => new(LineCircleIntrKind.NoIntersect, default, default);
+
+        /// <summary>
+        /// Creates a <see cref="LineCircleIntrKind.TangentIntersect"/> result.
+        /// </summary>
+        /// <param name="t0">
+        /// The line segment parametric value for where the tangent intersect point is.
+        /// </param>
+        /// <returns>The tangent intersect result.</returns>
         public static LineCircleIntr<T> TangentIntersect(T t0) => new(LineCircleIntrKind.TangentIntersect, t0, default);
+
+        /// <summary>
+        /// Creates a <see cref="LineCircleIntrKind.TwoIntersects"/> result.
+        /// </summary>
+        /// <param name="t0">
+        /// The line segment parametric value for where the first intersect point is.
+        /// </param>
+        /// <param name="t1">
+        /// The line segment parametric value for where the second intersect point is.
+        /// </param>
+        /// <returns>The two intersects result.</returns>
         public static LineCircleIntr<T> TwoIntersects(T t0, T t1) => new(LineCircleIntrKind.TwoIntersects, t0, t1);
 
+        /// <summary>
+        /// Exact field-wise equality comparison.
+        /// </summary>
+        /// <param name="other">The result to compare against.</param>
+        /// <returns>
+        /// <see langword="true"/> if the kind and both parametric values compare exactly equal.
+        /// </returns>
+        /// <remarks>
+        /// This is an IEEE 754 comparison matching Rust's derived <c>PartialEq</c>: <c>NaN</c> is
+        /// not equal to itself and <c>0.0</c> equals <c>-0.0</c>.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         // Matches Rust's derived PartialEq: IEEE 754 comparison, so NaN != NaN and 0.0 == -0.0.
         // T.Equals would treat NaN as equal to itself.
@@ -37,19 +111,88 @@ namespace CavalierContours.Core
             return Kind == other.Kind && T0 == other.T0 && T1 == other.T1;
         }
 
+        /// <summary>
+        /// Exact field-wise equality comparison against a boxed value.
+        /// </summary>
+        /// <param name="obj">The value to compare against.</param>
+        /// <returns>
+        /// <see langword="true"/> if <paramref name="obj"/> is a <see cref="LineCircleIntr{T}"/>
+        /// that compares equal per <see cref="Equals(LineCircleIntr{T})"/>.
+        /// </returns>
         public override bool Equals(object? obj) => obj is LineCircleIntr<T> other && Equals(other);
 
+        /// <summary>
+        /// Returns a hash code combining the kind and both parametric values.
+        /// </summary>
+        /// <returns>The hash code for this result.</returns>
         public override int GetHashCode() => HashCode.Combine(Kind, T0, T1);
 
+        /// <summary>
+        /// Exact field-wise equality comparison, see <see cref="Equals(LineCircleIntr{T})"/>.
+        /// </summary>
+        /// <param name="left">The left operand.</param>
+        /// <param name="right">The right operand.</param>
+        /// <returns><see langword="true"/> if the results compare exactly equal.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(LineCircleIntr<T> left, LineCircleIntr<T> right) => left.Equals(right);
 
+        /// <summary>
+        /// Exact field-wise inequality comparison, see <see cref="Equals(LineCircleIntr{T})"/>.
+        /// </summary>
+        /// <param name="left">The left operand.</param>
+        /// <param name="right">The right operand.</param>
+        /// <returns><see langword="true"/> if the results do not compare exactly equal.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(LineCircleIntr<T> left, LineCircleIntr<T> right) => !left.Equals(right);
     }
 
+    /// <summary>
+    /// Finds the intersects between a line segment and a circle.
+    /// </summary>
     public static class LineCircleIntersection
     {
+        /// <summary>
+        /// Finds the intersects between the line segment <c>p0-&gt;p1</c> and the circle defined by
+        /// <paramref name="radius"/> and <paramref name="circleCenter"/>.
+        /// </summary>
+        /// <typeparam name="T">Floating point type of the point components.</typeparam>
+        /// <param name="p0">Start point of the line segment.</param>
+        /// <param name="p1">End point of the line segment.</param>
+        /// <param name="radius">Radius of the circle.</param>
+        /// <param name="circleCenter">Center of the circle.</param>
+        /// <param name="epsilon">Positional tolerance used for fuzzy comparisons.</param>
+        /// <returns>
+        /// The intersect result; see <see cref="LineCircleIntrKind"/> for the meaning of each case.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// The result is given as parametric solution(s) for the line segment equation
+        /// <c>P(t) = p0 + t * (p1 - p0)</c> for <c>t = 0</c> to <c>t = 1</c>. If <c>t &lt; 0</c> or
+        /// <c>t &gt; 1</c> the intersect occurs only when extending the segment out past the points
+        /// <paramref name="p0"/> and <paramref name="p1"/> given: for <c>t &lt; 0</c> the intersect
+        /// is nearest to <paramref name="p0"/>, for <c>t &gt; 1</c> nearest to
+        /// <paramref name="p1"/>.
+        /// </para>
+        /// <para>
+        /// Intersects are "sticky" and "snap" to tangent points using fuzzy comparisons. Two
+        /// intersect points that are fuzzy equal are returned as one tangent intersect, and a line
+        /// outside the circle but within <paramref name="epsilon"/> of its radius is also returned
+        /// as a tangent intersect.
+        /// </para>
+        /// <para>
+        /// The merge of two candidate intersect points into a single tangent intersect is decided
+        /// by comparing the two computed positions with each other, not by comparing the shortest
+        /// distance from the line to the center against the radius. The latter would merge points
+        /// that are much farther apart than <paramref name="epsilon"/> when the circle radius is
+        /// large, because a small radial deviation there corresponds to a large chord length.
+        /// </para>
+        /// <para>
+        /// Implementation solves for the cartesian intersect points geometrically with the circle
+        /// shifted to the origin, using the line equation <c>Ax + By + C = 0</c>, and converts the
+        /// results back to parametric <c>t</c>. This was found to be more numerically stable than
+        /// solving for <c>t</c> via the quadratic equation.
+        /// </para>
+        /// </remarks>
         public static LineCircleIntr<T> Intersect<T>(
             Vector2<T> p0,
             Vector2<T> p1,

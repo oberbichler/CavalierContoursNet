@@ -13,8 +13,6 @@
     <PackageTags>polyline;offset;boolean;geometry;2d;cavalier-contours</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- TODO(Plan 4): remove once all public members are documented. -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>

@@ -214,6 +214,10 @@ namespace CavalierContours.Polyline
         }
     }
 
+    /// <summary>
+    /// Boolean operations between two closed polylines, and the intersection helpers they are built
+    /// on.
+    /// </summary>
     public static class PlineBoolean
     {
         private class FindIntersectsVisitor<T> : ITwoPlinesIntersectVisitor<T>
@@ -315,6 +319,30 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Visits every segment pair intersection between two polylines, as needed by the boolean
+        /// algorithm.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">First polyline; its segments are found via the spatial index.</param>
+        /// <param name="pline2">Second polyline; its segments drive the outer loop.</param>
+        /// <param name="visitor">
+        /// Receives the raw <see cref="PlineSegIntr{T}"/> for each tested segment pair, including
+        /// results of kind <see cref="PlineSegIntrKind.NoIntersect"/>. Returning
+        /// <see langword="false"/> stops the query for the current
+        /// <paramref name="pline2"/> segment.
+        /// </param>
+        /// <param name="options">
+        /// Epsilon and, optionally, a prebuilt spatial index for <paramref name="pline1"/>. When
+        /// <see cref="FindIntersectsOptions{T}.Pline1AabbIndex"/> is <see langword="null"/> an index
+        /// is built on the fly.
+        /// </param>
+        /// <remarks>
+        /// Nothing is visited when either polyline has fewer than two vertexes. Unlike
+        /// <see cref="PlineIntersects.VisitIntersects{T}(IPlineSource{T}, IPlineSource{T}, ITwoPlinesIntersectVisitor{T}, FindIntersectsOptions{T})"/>,
+        /// a visitor returning <see langword="false"/> only ends the inner spatial query here; the
+        /// outer loop over the segments of <paramref name="pline2"/> continues.
+        /// </remarks>
         public static void VisitIntersects<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
@@ -363,6 +391,30 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Finds all intersects between two polylines, separated into point intersects and
+        /// overlapping intersects, as used by the boolean algorithm.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">First polyline.</param>
+        /// <param name="pline2">Second polyline.</param>
+        /// <param name="options">
+        /// Epsilon and, optionally, a prebuilt spatial index for <paramref name="pline1"/>.
+        /// </param>
+        /// <returns>
+        /// The intersects found. An empty collection is returned when either polyline has fewer
+        /// than two vertexes.
+        /// </returns>
+        /// <remarks>
+        /// For an overlapping intersect, <c>Point1</c> is the end closest to the start of the
+        /// second polyline's segment and <c>Point2</c> the end furthest from it. When one segment
+        /// pair yields two point intersects they are ordered by distance from the start of the
+        /// second segment. An intersect exactly at the start of a segment is recorded with that
+        /// segment's start vertex index, except on an open polyline where an intersect at the very
+        /// end uses the second to last vertex index. Intersects landing on a shared vertex are
+        /// deduplicated afterwards so that a point common to two adjacent segments is reported
+        /// once.
+        /// </remarks>
         public static PlineIntersectsCollection<T> FindIntersects<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
@@ -415,6 +467,32 @@ namespace CavalierContours.Polyline
             return result;
         }
 
+        /// <summary>
+        /// Sorts overlapping intersects along the direction of the second polyline and joins
+        /// adjacent ones into contiguous slices, for use by the boolean algorithm.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="intersects">
+        /// The overlapping intersects to process. The list is sorted in place, so the caller's
+        /// ordering is destroyed. Each entry must follow the convention that <c>Point1</c> is
+        /// closest to the start of the segment on <paramref name="pline2"/> and <c>Point2</c>
+        /// furthest from it.
+        /// </param>
+        /// <param name="pline1">The first polyline of the intersect pair.</param>
+        /// <param name="pline2">
+        /// The second polyline; its segment indexes and direction define the sort order.
+        /// </param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy position comparisons.</param>
+        /// <returns>
+        /// The joined overlapping slices, or an empty list when <paramref name="intersects"/> is
+        /// empty.
+        /// </returns>
+        /// <remarks>
+        /// Consecutive intersects whose ends meet within <paramref name="posEqualEps"/> are merged
+        /// into one slice. If the last slice ends where the first one begins, the two are merged
+        /// into a single wrapping slice whose start index and updated start vertex are taken from
+        /// the last slice.
+        /// </remarks>
         public static List<OverlappingSlice<T>> SortAndJoinOverlappingIntersects<T>(
             List<PlineOverlappingIntersect<T>> intersects,
             IPlineSource<T> pline1,
@@ -1047,6 +1125,65 @@ namespace CavalierContours.Polyline
             return result;
         }
 
+        /// <summary>
+        /// Performs a boolean set operation between two closed polylines.
+        /// </summary>
+        /// <typeparam name="O">Mutable polyline type to produce.</typeparam>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">
+        /// First operand, the polyline referred to as <c>pline1</c> in the result. Must be closed
+        /// and have at least two vertexes.
+        /// </param>
+        /// <param name="pline2">
+        /// Second operand, the polyline referred to as <c>pline2</c> in the result. Must be closed
+        /// and have at least two vertexes.
+        /// </param>
+        /// <param name="operation">
+        /// The set operation to perform: <see cref="BooleanOp.Or"/> for the union,
+        /// <see cref="BooleanOp.And"/> for the intersection, <see cref="BooleanOp.Not"/> to
+        /// subtract <paramref name="pline2"/> from <paramref name="pline1"/>, and
+        /// <see cref="BooleanOp.Xor"/> for the symmetric difference.
+        /// </param>
+        /// <param name="options">
+        /// Algorithm parameters:
+        /// <see cref="PlineBooleanOptions{T}.Pline1AabbIndex"/> supplies a prebuilt spatial index
+        /// for <paramref name="pline1"/> and is computed internally when <see langword="null"/>;
+        /// <see cref="PlineBooleanOptions{T}.PosEqualEps"/> is the epsilon for position equality;
+        /// <see cref="PlineBooleanOptions{T}.CollapsedAreaEps"/>, when not <see langword="null"/>,
+        /// drops result polylines whose absolute area is below it, which avoids sliver output from
+        /// floating point thresholding.
+        /// </param>
+        /// <returns>
+        /// A result holding the positive polylines (remaining filled space), the negative polylines
+        /// (subtracted space, that is holes), the slices each was stitched from, and a
+        /// <see cref="BooleanResultInfo"/> describing the topological case that was hit:
+        /// <see cref="BooleanResultInfo.InvalidInput"/>,
+        /// <see cref="BooleanResultInfo.Pline1InsidePline2"/>,
+        /// <see cref="BooleanResultInfo.Pline2InsidePline1"/>,
+        /// <see cref="BooleanResultInfo.Disjoint"/>,
+        /// <see cref="BooleanResultInfo.Overlapping"/> or
+        /// <see cref="BooleanResultInfo.Intersected"/>. Every result polyline carries the user data
+        /// values of both inputs concatenated.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// Degenerate input does not throw: if either polyline is open or has fewer than two
+        /// vertexes, an empty result with
+        /// <see cref="BooleanResultInfo.InvalidInput"/> is returned. Self intersecting inputs are
+        /// not rejected but may produce unexpected results.
+        /// </para>
+        /// <para>
+        /// The algorithm first finds all intersects between the two polylines, including
+        /// overlapping stretches, and records their orientations. When there are no intersects at
+        /// all, or the two paths coincide exactly, the answer follows directly from a containment
+        /// test and whole input polylines are returned. Otherwise both polylines are cut into
+        /// slices at every intersect point, and each slice is kept or discarded according to
+        /// whether it lies inside or outside the other polyline, which is what distinguishes the
+        /// four operations. The surviving slices are finally stitched end to end into closed
+        /// polylines and classified as positive or negative by comparing their orientation against
+        /// the input orientation.
+        /// </para>
+        /// </remarks>
         public static BooleanResult<O, T> PolylineBoolean<O, T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,

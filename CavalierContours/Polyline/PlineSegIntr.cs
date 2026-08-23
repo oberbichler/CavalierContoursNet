@@ -6,21 +6,83 @@ using CavalierContours.Core;
 
 namespace CavalierContours.Polyline
 {
+    /// <summary>
+    /// Discriminates the possible outcomes of intersecting two polyline segments.
+    /// </summary>
     public enum PlineSegIntrKind : byte
     {
+        /// <summary>
+        /// The two segments do not intersect. Neither point of the result carries meaning.
+        /// </summary>
         NoIntersect,
+
+        /// <summary>
+        /// The segments touch tangentially in exactly one point, held in
+        /// <see cref="PlineSegIntr{T}.Point1"/>.
+        /// </summary>
         TangentIntersect,
+
+        /// <summary>
+        /// The segments cross in exactly one, non-tangent point, held in
+        /// <see cref="PlineSegIntr{T}.Point1"/>.
+        /// </summary>
         OneIntersect,
+
+        /// <summary>
+        /// The segments cross in two distinct points, held in
+        /// <see cref="PlineSegIntr{T}.Point1"/> and <see cref="PlineSegIntr{T}.Point2"/> in the
+        /// direction of the second segment.
+        /// </summary>
         TwoIntersects,
+
+        /// <summary>
+        /// Both segments are lines and they lie on top of each other over a stretch.
+        /// <see cref="PlineSegIntr{T}.Point1"/> is the start and
+        /// <see cref="PlineSegIntr{T}.Point2"/> the end of that stretch in the direction of the
+        /// second segment.
+        /// </summary>
         OverlappingLines,
+
+        /// <summary>
+        /// Both segments are arcs and they lie on top of each other over a stretch.
+        /// <see cref="PlineSegIntr{T}.Point1"/> is the start and
+        /// <see cref="PlineSegIntr{T}.Point2"/> the end of that stretch in the direction of the
+        /// second segment.
+        /// </summary>
         OverlappingArcs
     }
 
+    /// <summary>
+    /// Result of intersecting two polyline segments.
+    /// </summary>
+    /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+    /// <remarks>
+    /// Which of the two points are meaningful depends on <see cref="Kind"/>. Whenever two points
+    /// are reported, their order is part of the contract: they run along the direction of the
+    /// second segment (<c>u1</c> towards <c>u2</c> in
+    /// <see cref="PlineSegIntersection.Intersect{T}(PlineVertex{T}, PlineVertex{T}, PlineVertex{T}, PlineVertex{T}, T)"/>).
+    /// Callers that build slices out of these points rely on that order.
+    /// </remarks>
     public readonly struct PlineSegIntr<T>
         where T : struct, IFloatingPointIeee754<T>
     {
+        /// <summary>
+        /// The kind of intersection found, which decides how many of the points are meaningful.
+        /// </summary>
         public readonly PlineSegIntrKind Kind;
+
+        /// <summary>
+        /// The single intersect point, or the first of two points according to the direction of the
+        /// second segment. Meaningless for <see cref="PlineSegIntrKind.NoIntersect"/>.
+        /// </summary>
         public readonly Vector2<T> Point1;
+
+        /// <summary>
+        /// The second intersect point according to the direction of the second segment. Only
+        /// meaningful for <see cref="PlineSegIntrKind.TwoIntersects"/>,
+        /// <see cref="PlineSegIntrKind.OverlappingLines"/> and
+        /// <see cref="PlineSegIntrKind.OverlappingArcs"/>.
+        /// </summary>
         public readonly Vector2<T> Point2;
 
         private PlineSegIntr(PlineSegIntrKind kind, Vector2<T> point1, Vector2<T> point2)
@@ -30,16 +92,76 @@ namespace CavalierContours.Polyline
             Point2 = point2;
         }
 
+        /// <summary>
+        /// Gets a result stating that the two segments do not intersect.
+        /// </summary>
         public static PlineSegIntr<T> NoIntersect => new(PlineSegIntrKind.NoIntersect, default, default);
+
+        /// <summary>
+        /// Creates a result holding one tangent intersect point.
+        /// </summary>
+        /// <param name="point">The tangent intersect point.</param>
+        /// <returns>A result of kind <see cref="PlineSegIntrKind.TangentIntersect"/>.</returns>
         public static PlineSegIntr<T> TangentIntersect(Vector2<T> point) => new(PlineSegIntrKind.TangentIntersect, point, default);
+
+        /// <summary>
+        /// Creates a result holding one non-tangent intersect point.
+        /// </summary>
+        /// <param name="point">The intersect point.</param>
+        /// <returns>A result of kind <see cref="PlineSegIntrKind.OneIntersect"/>.</returns>
         public static PlineSegIntr<T> OneIntersect(Vector2<T> point) => new(PlineSegIntrKind.OneIntersect, point, default);
+
+        /// <summary>
+        /// Creates a result holding two intersect points.
+        /// </summary>
+        /// <param name="point1">First intersect point in the direction of the second segment.</param>
+        /// <param name="point2">Second intersect point in the direction of the second segment.</param>
+        /// <returns>A result of kind <see cref="PlineSegIntrKind.TwoIntersects"/>.</returns>
         public static PlineSegIntr<T> TwoIntersects(Vector2<T> point1, Vector2<T> point2) => new(PlineSegIntrKind.TwoIntersects, point1, point2);
+
+        /// <summary>
+        /// Creates a result describing an overlap between two line segments.
+        /// </summary>
+        /// <param name="point1">Start of the overlap in the direction of the second segment.</param>
+        /// <param name="point2">End of the overlap in the direction of the second segment.</param>
+        /// <returns>A result of kind <see cref="PlineSegIntrKind.OverlappingLines"/>.</returns>
         public static PlineSegIntr<T> OverlappingLines(Vector2<T> point1, Vector2<T> point2) => new(PlineSegIntrKind.OverlappingLines, point1, point2);
+
+        /// <summary>
+        /// Creates a result describing an overlap between two arc segments.
+        /// </summary>
+        /// <param name="point1">Start of the overlap in the direction of the second segment.</param>
+        /// <param name="point2">End of the overlap in the direction of the second segment.</param>
+        /// <returns>A result of kind <see cref="PlineSegIntrKind.OverlappingArcs"/>.</returns>
         public static PlineSegIntr<T> OverlappingArcs(Vector2<T> point1, Vector2<T> point2) => new(PlineSegIntrKind.OverlappingArcs, point1, point2);
     }
 
+    /// <summary>
+    /// Computes the intersection of two polyline segments.
+    /// </summary>
     public static class PlineSegIntersection
     {
+        /// <summary>
+        /// Finds the intersects between the polyline segments <c>v1-&gt;v2</c> and
+        /// <c>u1-&gt;u2</c>.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="v1">Start vertex of the first segment; its bulge defines the segment shape.</param>
+        /// <param name="v2">End vertex of the first segment.</param>
+        /// <param name="u1">Start vertex of the second segment; its bulge defines the segment shape.</param>
+        /// <param name="u2">End vertex of the second segment.</param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy float comparisons.</param>
+        /// <returns>
+        /// The intersection result. Whenever it holds two points, they are ordered along the
+        /// direction of the second segment, from <paramref name="u1"/> towards
+        /// <paramref name="u2"/>.
+        /// </returns>
+        /// <remarks>
+        /// A zero bulge makes a segment a line, any other bulge makes it an arc, so the three cases
+        /// line/line, line/arc and arc/arc are handled separately. In the line/arc and arc/arc
+        /// cases the raw circle intersect points are snapped to segment end points that already lie
+        /// on the other segment, which keeps shared end points exact instead of nearly equal.
+        /// </remarks>
         public static PlineSegIntr<T> Intersect<T>(
             PlineVertex<T> v1,
             PlineVertex<T> v2,

@@ -13,6 +13,11 @@ namespace CavalierContours.Tests
     {
         private const double Eps = 1e-5;
 
+        /// <summary>
+        /// Upstream 0.8.0 uses `diff &lt; 0` for this branch, not `&lt;=`. The zero case is
+        /// result-equivalent because h is then 0, so point1 == point2 exactly and the following
+        /// FuzzyEqEps branch returns the same midpoint. This test pins that equivalence.
+        /// </summary>
         [Fact]
         public void ExternallyTangentCirclesReturnSingleTouchPoint()
         {

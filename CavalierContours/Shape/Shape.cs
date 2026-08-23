@@ -8,16 +8,41 @@ using CavalierContours.Spatial;
 
 namespace CavalierContours.Shape
 {
+    /// <summary>
+    /// One offset polyline produced from a single input loop of a <see cref="Shape{T}"/>, together
+    /// with the index of the input loop it came from.
+    /// </summary>
+    /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+    /// <remarks>
+    /// This type is public so that intermediate results of the shape offset algorithm can be
+    /// inspected for visualization and testing.
+    /// </remarks>
     public class OffsetLoop<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
+        /// <summary>
+        /// Gets or sets the index of the parent loop in the original input shape, counting all
+        /// counter-clockwise polylines first and then all clockwise polylines.
+        /// </summary>
         public int ParentLoopIdx { get; set; }
+
+        /// <summary>
+        /// Gets or sets the offset polyline together with its spatial index.
+        /// </summary>
         public IndexedPolyline<T> IndexedPline { get; set; }
 
+        /// <summary>
+        /// Creates an offset loop with parent index 0 and an empty polyline.
+        /// </summary>
         public OffsetLoop() : this(0, new IndexedPolyline<T>(new Polyline<T>()))
         {
         }
 
+        /// <summary>
+        /// Creates an offset loop for the given parent index and offset polyline.
+        /// </summary>
+        /// <param name="parentLoopIdx">Index of the input loop this offset was derived from.</param>
+        /// <param name="indexedPline">The offset polyline with its spatial index.</param>
         public OffsetLoop(int parentLoopIdx, IndexedPolyline<T> indexedPline)
         {
             ParentLoopIdx = parentLoopIdx;
@@ -25,18 +50,58 @@ namespace CavalierContours.Shape
         }
     }
 
+    /// <summary>
+    /// A polyline paired with a spatial index built from the approximate bounding boxes of its
+    /// segments, which makes intersection and proximity queries against it fast.
+    /// </summary>
+    /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
     public class IndexedPolyline<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
+        /// <summary>
+        /// Gets or sets the polyline geometry.
+        /// </summary>
+        /// <remarks>
+        /// Replacing the polyline or mutating it in place does not rebuild
+        /// <see cref="SpatialIndex"/>, which then no longer matches the geometry.
+        /// </remarks>
         public Polyline<T> Polyline { get; set; }
+
+        /// <summary>
+        /// Gets or sets the spatial index built from the polyline's segment bounding boxes.
+        /// </summary>
         public StaticAABB2DIndex<T> SpatialIndex { get; set; }
 
+        /// <summary>
+        /// Wraps the given polyline and immediately builds its approximate segment bounding box
+        /// index.
+        /// </summary>
+        /// <param name="polyline">
+        /// The polyline to index. It is stored by reference, not copied.
+        /// </param>
         public IndexedPolyline(Polyline<T> polyline)
         {
             Polyline = polyline;
             SpatialIndex = polyline.CreateApproxAabbIndex();
         }
 
+        /// <summary>
+        /// Offsets this single loop as part of a shape offset, reusing the existing spatial index
+        /// and with self intersection handling turned off.
+        /// </summary>
+        /// <param name="offset">
+        /// Offset distance. Positive offsets go to the left of the polyline direction, negative to
+        /// the right.
+        /// </param>
+        /// <param name="options">Epsilons to use for the offset.</param>
+        /// <returns>
+        /// The resulting offset polylines. A single input loop may produce zero, one or several
+        /// output loops.
+        /// </returns>
+        /// <remarks>
+        /// Self intersects are deliberately not handled here because the surrounding shape offset
+        /// resolves intersections globally across all loops in a later step.
+        /// </remarks>
         public List<Polyline<T>> ParallelOffsetForShape(T offset, ShapeOffsetOptions<T> options)
         {
             var opts = new PlineOffsetOptions<T>
@@ -52,13 +117,37 @@ namespace CavalierContours.Shape
         }
     }
 
+    /// <summary>
+    /// Options controlling the fuzzy comparisons performed by
+    /// <see cref="Shape{T}.ParallelOffset(T, ShapeOffsetOptions{T})"/>.
+    /// </summary>
+    /// <typeparam name="T">Floating point type used for the epsilons.</typeparam>
     public class ShapeOffsetOptions<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
+        /// <summary>
+        /// Gets or sets the epsilon used to decide whether two positions are equal. Defaults to
+        /// 1e-5.
+        /// </summary>
         public T PosEqualEps { get; set; }
+
+        /// <summary>
+        /// Gets or sets the epsilon used when testing the distance of a slice to the original
+        /// polylines for validity. Defaults to 1e-4.
+        /// </summary>
         public T OffsetDistEps { get; set; }
+
+        /// <summary>
+        /// Gets or sets the epsilon used to decide whether two positions are equal when stitching
+        /// polyline slices together. Defaults to 1e-4.
+        /// </summary>
         public T SliceJoinEps { get; set; }
 
+        /// <summary>
+        /// Creates options with the default epsilons (1e-5 for
+        /// <see cref="PosEqualEps"/>, 1e-4 for <see cref="OffsetDistEps"/> and
+        /// <see cref="SliceJoinEps"/>).
+        /// </summary>
         public ShapeOffsetOptions()
         {
             PosEqualEps = T.CreateChecked(1e-5);
@@ -66,6 +155,12 @@ namespace CavalierContours.Shape
             SliceJoinEps = T.CreateChecked(1e-4);
         }
 
+        /// <summary>
+        /// Creates options with explicit epsilons.
+        /// </summary>
+        /// <param name="posEqualEps">Value for <see cref="PosEqualEps"/>.</param>
+        /// <param name="offsetDistEps">Value for <see cref="OffsetDistEps"/>.</param>
+        /// <param name="sliceJoinEps">Value for <see cref="SliceJoinEps"/>.</param>
         public ShapeOffsetOptions(T posEqualEps, T offsetDistEps, T sliceJoinEps)
         {
             PosEqualEps = posEqualEps;
@@ -74,13 +169,40 @@ namespace CavalierContours.Shape
         }
     }
 
+    /// <summary>
+    /// All intersection points found between one pair of offset loops, used to dissect those loops
+    /// into slices.
+    /// </summary>
+    /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+    /// <remarks>
+    /// Overlapping intersects are flattened into two basic intersects, one for each end of the
+    /// overlap, so this list holds only point intersects.
+    /// </remarks>
     public class SlicePointSet<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
+        /// <summary>
+        /// Gets or sets the index of the first offset loop of the pair.
+        /// </summary>
         public int LoopIdx1 { get; set; }
+
+        /// <summary>
+        /// Gets or sets the index of the second offset loop of the pair.
+        /// </summary>
         public int LoopIdx2 { get; set; }
+
+        /// <summary>
+        /// Gets or sets the intersection points between the two loops. Each point carries the
+        /// segment start index on the first loop and on the second loop.
+        /// </summary>
         public List<PlineBasicIntersect<T>> SlicePoints { get; set; }
 
+        /// <summary>
+        /// Creates an intersection set for a pair of offset loops.
+        /// </summary>
+        /// <param name="loopIdx1">Index of the first offset loop.</param>
+        /// <param name="loopIdx2">Index of the second offset loop.</param>
+        /// <param name="slicePoints">Intersection points between the two loops.</param>
         public SlicePointSet(int loopIdx1, int loopIdx2, List<PlineBasicIntersect<T>> slicePoints)
         {
             LoopIdx1 = loopIdx1;
@@ -89,12 +211,33 @@ namespace CavalierContours.Shape
         }
     }
 
+    /// <summary>
+    /// A portion of an offset loop that passed the distance validation and is ready to be stitched
+    /// into the final result.
+    /// </summary>
+    /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+    /// <remarks>
+    /// The slice is kept as a view into the source offset polyline rather than as a copy, so the
+    /// source loop must stay alive and unchanged until stitching is done.
+    /// </remarks>
     public readonly struct DissectedSlice<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
+        /// <summary>
+        /// Index of the offset loop this slice was cut from.
+        /// </summary>
         public readonly int SourceIdx;
+
+        /// <summary>
+        /// View data describing where the slice starts and ends within the source polyline.
+        /// </summary>
         public readonly PlineViewData<T> VData;
 
+        /// <summary>
+        /// Creates a dissected slice.
+        /// </summary>
+        /// <param name="sourceIdx">Index of the offset loop the slice was cut from.</param>
+        /// <param name="vData">View data describing the slice within that loop.</param>
         public DissectedSlice(int sourceIdx, PlineViewData<T> vData)
         {
             SourceIdx = sourceIdx;
@@ -102,18 +245,65 @@ namespace CavalierContours.Shape
         }
     }
 
+    /// <summary>
+    /// A multi-polyline area: a set of closed loops partitioned by orientation into filled regions
+    /// and holes.
+    /// </summary>
+    /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+    /// <remarks>
+    /// <para>
+    /// Counter-clockwise loops (<see cref="CcwPlines"/>) carry positive area and describe islands,
+    /// that is filled material. Clockwise loops (<see cref="CwPlines"/>) carry negative area and
+    /// describe holes cut out of those islands. This is the only thing that distinguishes the two
+    /// collections; orientation, not nesting order, decides which is which.
+    /// </para>
+    /// <para>
+    /// Offsetting a shape via <see cref="ParallelOffset(T, ShapeOffsetOptions{T})"/> is a global
+    /// operation over all loops at once, so islands and holes interact: loops may merge into one
+    /// another or split apart, holes may vanish, and the result is again a valid
+    /// <see cref="Shape{T}"/>.
+    /// </para>
+    /// </remarks>
     public class Shape<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
         private readonly ReadOnlyCollection<IndexedPolyline<T>> _ccwPlines;
         private readonly ReadOnlyCollection<IndexedPolyline<T>> _cwPlines;
 
+        /// <summary>
+        /// Gets the counter-clockwise loops of the shape, that is the positive area islands.
+        /// </summary>
         public IReadOnlyList<IndexedPolyline<T>> CcwPlines => _ccwPlines;
 
+        /// <summary>
+        /// Gets the clockwise loops of the shape, that is the negative area holes.
+        /// </summary>
         public IReadOnlyList<IndexedPolyline<T>> CwPlines => _cwPlines;
 
+        /// <summary>
+        /// Gets the spatial index over the area bounding boxes of all loops.
+        /// </summary>
+        /// <remarks>
+        /// Index positions run over all <see cref="CcwPlines"/> first and then over all
+        /// <see cref="CwPlines"/>. With one ccw and two cw loops, position 0 is the ccw loop and
+        /// positions 1 and 2 are the first and second cw loops.
+        /// </remarks>
         public StaticAABB2DIndex<T> PlinesIndex { get; }
 
+        /// <summary>
+        /// Creates a shape from already partitioned loops and a matching spatial index.
+        /// </summary>
+        /// <param name="ccwPlines">Counter-clockwise loops (islands).</param>
+        /// <param name="cwPlines">Clockwise loops (holes).</param>
+        /// <param name="plinesIndex">
+        /// Spatial index over the loop bounding boxes, ordered ccw loops first then cw loops. It is
+        /// taken as given and not validated against the lists.
+        /// </param>
+        /// <remarks>
+        /// No orientation check is performed; the caller is responsible for putting each loop in
+        /// the right list. Use <see cref="FromPlines(IEnumerable{Polyline{T}})"/> to have that done
+        /// automatically.
+        /// </remarks>
         public Shape(List<IndexedPolyline<T>> ccwPlines, List<IndexedPolyline<T>> cwPlines, StaticAABB2DIndex<T> plinesIndex)
         {
             _ccwPlines = new ReadOnlyCollection<IndexedPolyline<T>>(ccwPlines);
@@ -121,6 +311,24 @@ namespace CavalierContours.Shape
             PlinesIndex = plinesIndex;
         }
 
+        /// <summary>
+        /// Builds a shape from a set of polylines, partitioning them by orientation.
+        /// </summary>
+        /// <param name="plines">
+        /// The polylines to form the shape from. Polylines with fewer than two vertexes are
+        /// filtered out. Every remaining polyline is classified by its orientation:
+        /// counter-clockwise ones become islands, all others become holes.
+        /// </param>
+        /// <returns>The resulting shape with its spatial index already built.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// A polyline that passed the vertex count filter has an empty spatial index and therefore
+        /// no bounds.
+        /// </exception>
+        /// <remarks>
+        /// The shape keeps references to the supplied polylines rather than copies of them.
+        /// Mutating one of them afterwards invalidates both its own segment index and the shape's
+        /// <see cref="PlinesIndex"/>, and any later offset will operate on stale bounds.
+        /// </remarks>
         public static Shape<T> FromPlines(IEnumerable<Polyline<T>> plines)
         {
             var ccwPlines = new List<IndexedPolyline<T>>();
@@ -164,6 +372,10 @@ namespace CavalierContours.Shape
             return new Shape<T>(ccwPlines, cwPlines, plinesIndex);
         }
 
+        /// <summary>
+        /// Returns an empty shape with no loops at all.
+        /// </summary>
+        /// <returns>A shape whose two loop collections and spatial index are empty.</returns>
         public static Shape<T> Empty()
         {
             return new Shape<T>(
@@ -173,6 +385,29 @@ namespace CavalierContours.Shape
             );
         }
 
+        /// <summary>
+        /// Offsets the whole shape by <paramref name="offset"/>, treating all islands and holes as
+        /// one connected area.
+        /// </summary>
+        /// <param name="offset">
+        /// Offset distance. A positive value grows the filled area outward and shrinks the holes; a
+        /// negative value does the opposite.
+        /// </param>
+        /// <param name="options">Epsilons controlling the fuzzy comparisons.</param>
+        /// <returns>
+        /// The offset shape, again partitioned into islands and holes. An empty shape is returned
+        /// when the offset removes all material.
+        /// </returns>
+        /// <remarks>
+        /// Merging and splitting of loops is handled automatically: loops that run into each other
+        /// are joined, loops that pinch off are split, and loops that collapse are dropped. The
+        /// work is done in four steps, each of which is also exposed individually:
+        /// <see cref="CreateOffsetLoopsWithIndex(T, ShapeOffsetOptions{T})"/>,
+        /// <see cref="FindIntersectsBetweenOffsetLoops(List{OffsetLoop{T}}, List{OffsetLoop{T}}, StaticAABB2DIndex{T}, T)"/>,
+        /// <see cref="CreateValidSlicesFromIntersects(List{OffsetLoop{T}}, List{OffsetLoop{T}}, List{SlicePointSet{T}}, T, ShapeOffsetOptions{T})"/>
+        /// and
+        /// <see cref="StitchSlicesTogether(List{DissectedSlice{T}}, List{OffsetLoop{T}}, List{OffsetLoop{T}}, T, T)"/>.
+        /// </remarks>
         public Shape<T> ParallelOffset(T offset, ShapeOffsetOptions<T> options)
         {
             var (ccwOffsetLoops, cwOffsetLoops, offsetLoopsIndex) = CreateOffsetLoopsWithIndex(offset, options);
@@ -206,6 +441,25 @@ namespace CavalierContours.Shape
             );
         }
 
+        /// <summary>
+        /// Step 1 of the shape offset: offsets every input loop on its own and indexes the results.
+        /// </summary>
+        /// <param name="offset">Offset distance, see <see cref="ParallelOffset(T, ShapeOffsetOptions{T})"/>.</param>
+        /// <param name="options">Epsilons controlling the fuzzy comparisons.</param>
+        /// <returns>
+        /// A tuple of the counter-clockwise offset loops, the clockwise offset loops, and a spatial
+        /// index over the bounding boxes of all of them, ordered ccw loops first then cw loops.
+        /// </returns>
+        /// <exception cref="InvalidOperationException">
+        /// An offset loop has an empty spatial index and therefore no bounds.
+        /// </exception>
+        /// <remarks>
+        /// Each result loop is classified by the sign of its area, not by the orientation of its
+        /// parent. Loops that are obviously spurious are dropped right away: for a positive offset
+        /// a negative area loop coming from an island, and for a negative offset a positive area
+        /// loop coming from a hole. Exposed publicly so intermediate results can be visualized and
+        /// tested.
+        /// </remarks>
         public (List<OffsetLoop<T>> CcwOffsetLoops, List<OffsetLoop<T>> CwOffsetLoops, StaticAABB2DIndex<T> OffsetLoopsIndex) CreateOffsetLoopsWithIndex(
             T offset,
             ShapeOffsetOptions<T> options)
@@ -295,6 +549,27 @@ namespace CavalierContours.Shape
             }
         }
 
+        /// <summary>
+        /// Step 2 of the shape offset: finds all intersections between the offset loops produced by
+        /// step 1.
+        /// </summary>
+        /// <param name="ccwOffsetLoops">Counter-clockwise offset loops from step 1.</param>
+        /// <param name="cwOffsetLoops">Clockwise offset loops from step 1.</param>
+        /// <param name="offsetLoopsIndex">Spatial index over the offset loop bounds from step 1.</param>
+        /// <param name="posEqualEps">Epsilon for position equality comparisons.</param>
+        /// <returns>
+        /// One <see cref="SlicePointSet{T}"/> per intersecting pair of loops. Pairs without any
+        /// intersection are omitted, and each unordered pair appears at most once.
+        /// </returns>
+        /// <exception cref="InvalidOperationException">
+        /// An offset loop has an empty spatial index and therefore no bounds.
+        /// </exception>
+        /// <remarks>
+        /// The spatial index is used to restrict the pairwise intersection tests to loops whose
+        /// bounding boxes overlap. Overlapping intersects are converted into two slice points, one
+        /// for each end of the overlap. Exposed publicly so intersection points can be visualized
+        /// and tested.
+        /// </remarks>
         public List<SlicePointSet<T>> FindIntersectsBetweenOffsetLoops(
             List<OffsetLoop<T>> ccwOffsetLoops,
             List<OffsetLoop<T>> cwOffsetLoops,
@@ -398,6 +673,32 @@ namespace CavalierContours.Shape
             }
         }
 
+        /// <summary>
+        /// Step 3 of the shape offset: cuts the offset loops at the intersection points from step 2
+        /// and keeps only the slices that are far enough from the input loops.
+        /// </summary>
+        /// <param name="ccwOffsetLoops">Counter-clockwise offset loops from step 1.</param>
+        /// <param name="cwOffsetLoops">Clockwise offset loops from step 1.</param>
+        /// <param name="slicePointSets">Intersection data from step 2.</param>
+        /// <param name="offset">The offset distance the slices are validated against.</param>
+        /// <param name="options">
+        /// Epsilons; <see cref="ShapeOffsetOptions{T}.PosEqualEps"/> and
+        /// <see cref="ShapeOffsetOptions{T}.OffsetDistEps"/> are used here.
+        /// </param>
+        /// <returns>
+        /// The valid slices, ready to be stitched. Offset loops that had no intersection points at
+        /// all are carried over whole, as a single slice covering the entire loop, provided they
+        /// pass validation.
+        /// </returns>
+        /// <remarks>
+        /// Validity is decided by sampling segment midpoints of the slice and checking that they
+        /// keep the required distance from every input loop other than the slice's own parent.
+        /// Where possible a midpoint of a segment not created by an intersection is used, because
+        /// a segment ending at an intersection point is always exactly at the offset distance and
+        /// would make an invalid slice look valid. Slices are returned as views into the source
+        /// polylines, so nothing is copied. Exposed publicly so individual slices can be visualized
+        /// and tested.
+        /// </remarks>
         public List<DissectedSlice<T>> CreateValidSlicesFromIntersects(
             List<OffsetLoop<T>> ccwOffsetLoops,
             List<OffsetLoop<T>> cwOffsetLoops,
@@ -606,6 +907,32 @@ namespace CavalierContours.Shape
             }
         }
 
+        /// <summary>
+        /// Step 4 of the shape offset: connects the valid slices from step 3 end to end into closed
+        /// loops and assembles the final shape.
+        /// </summary>
+        /// <param name="slicesData">Valid slices from step 3.</param>
+        /// <param name="ccwOffsetLoops">Counter-clockwise offset loops from step 1, used to resolve slice sources.</param>
+        /// <param name="cwOffsetLoops">Clockwise offset loops from step 1, used to resolve slice sources.</param>
+        /// <param name="posEqualEps">Epsilon for position equality when appending slice vertexes.</param>
+        /// <param name="sliceJoinEps">
+        /// Epsilon defining how close a slice start must be to the current slice end to be
+        /// considered its continuation.
+        /// </param>
+        /// <returns>
+        /// The finished shape, with each stitched loop classified as island or hole by its
+        /// orientation. An empty shape is returned when there are no slices.
+        /// </returns>
+        /// <exception cref="InvalidOperationException">
+        /// The stitching loop ran more iterations than there are slices, which means the slice
+        /// connectivity is inconsistent; or a result loop has no bounds.
+        /// </exception>
+        /// <remarks>
+        /// A spatial index over the slice start points is used to find the continuation of each
+        /// slice. When several candidates are within <paramref name="sliceJoinEps"/>, a candidate
+        /// from the same source offset loop is preferred. Exposed publicly so the stitching can be
+        /// observed and tested.
+        /// </remarks>
         public Shape<T> StitchSlicesTogether(
             List<DissectedSlice<T>> slicesData,
             List<OffsetLoop<T>> ccwOffsetLoops,
