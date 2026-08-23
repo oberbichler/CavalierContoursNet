@@ -68,7 +68,8 @@ namespace CavalierContours.Polyline
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Equals(PlineVertex<T> other) => X.Equals(other.X) && Y.Equals(other.Y) && Bulge.Equals(other.Bulge);
+        // Matches Rust's derived PartialEq: IEEE 754 comparison, so NaN != NaN and 0.0 == -0.0.
+        public bool Equals(PlineVertex<T> other) => X == other.X && Y == other.Y && Bulge == other.Bulge;
 
         public override bool Equals(object? obj) => obj is PlineVertex<T> other && Equals(other);
 

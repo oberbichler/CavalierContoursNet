@@ -66,7 +66,7 @@ namespace CavalierContours.Core
             Vector2<T> midpoint = center1 + cv.Scale(a / d);
             T diff = rad1Sq - a * a;
 
-            if (diff < T.Zero)
+            if (diff <= T.Zero)
             {
                 return CircleCircleIntr<T>.TangentIntersect(midpoint);
             }

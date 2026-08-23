@@ -770,16 +770,7 @@ namespace CavalierContours.Tests
         /// Test case for issue https://github.com/jbuckmccready/cavalier_contours/issues/42.
         /// Caused by arc-arc seg intersect bug.
         /// </summary>
-        /// <remarks>
-        /// The boolean geometry itself is correct in this port; only the userdata carried on the
-        /// Xor result differs, and the cause sits in <c>PlineSourceExtensions.RemoveRedundant</c>,
-        /// not in <c>PlineBoolean</c>. See the Skip reason for the exact numbers.
-        /// </remarks>
-        [Fact(Skip = "deviation from Rust 0.7.0: Xor pos pline (vc 25 raw -> 23 after RemoveRedundant) expected userdata [] but C# yields [4, 117]. "
-            + "Rust remove_redundant (traits.rs:549) builds the reduced polyline via OutputPolyline::with_capacity/from_iter and therefore drops userdata, "
-            + "so PlineProperties::from_pline reports userdata []; the C# RemoveRedundant (IPlineSource.cs:618) calls SetUserDataValues(self.UserDataValues) and keeps [4, 117]. "
-            + "Everything else matches: vc 23 == 23, area 86517.957123243177 vs Rust 86517.95712324319 (diff 1.5e-11), pathLength 2759.2667455033516 == 2759.2667455033516, "
-            + "extents [-618, -246.331646989572, 412, -156.831646989571] identical. Substituting userdata [4, 117] into this one expectation makes all 828 state pairs x 4 ops pass.")]
+        [Fact]
         public void OppositeDirectionArcArcEndpointsIntersectBugReported()
         {
             RunPlineBooleanTests(

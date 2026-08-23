@@ -193,7 +193,15 @@ namespace CavalierContours.Polyline
         {
             if (!source.IsClosed)
             {
-                return FromSlicePoints(source, startPoint, startIndex, source.Last()!.Value.Pos(), source.VertexCount - 1, posEqualEps);
+                // Upstream is `source.last()?.pos()`, so an empty source yields None rather
+                // than panicking.
+                var last = source.Last();
+                if (last is null)
+                {
+                    return null;
+                }
+
+                return FromSlicePoints(source, startPoint, startIndex, last.Value.Pos(), source.VertexCount - 1, posEqualEps);
             }
 
             int vc = source.VertexCount;
@@ -286,6 +294,15 @@ namespace CavalierContours.Polyline
             if (traverseCount == 0)
             {
                 return CreateOnSingleSegment(source, startIndex, updatedStart, endPoint, posEqualEps);
+            }
+            else if (traverseCount == 1
+                && endPoint.FuzzyEqEps(source.Get(endIndex).Pos(), posEqualEps)
+                && updatedStart.Pos().FuzzyEqEps(endPoint, posEqualEps))
+            {
+                // The slice collapsed onto a single point across a near-coincident vertex.
+                // Without this the result is a two vertex view with zero path length, which then
+                // travels into the boolean and offset stitching stages.
+                return null;
             }
             else
             {
