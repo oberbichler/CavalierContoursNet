@@ -105,6 +105,35 @@ Positive = counter-clockwise, negative = clockwise. Defined as `tan(sweep_angle 
 | `pline.FindPointAtPathLength(...)`  | Find point at a given distance along the polyline         |
 | `pline.CreateApproxAabbIndex()`     | Build a spatial index for accelerated queries             |
 
+## Upstream parity
+
+This library is a port of [cavalier_contours](https://github.com/jbuckmccready/cavalier_contours) **0.8.0**
+and of [static_aabb2d_index](https://github.com/jbuckmccready/static_aabb2d_index) **2.1.0**.
+
+Parity is verified by a differential fuzz harness: both sides generate the same inputs from a
+shared deterministic PRNG, and area, path length and extents of every result are compared as raw
+IEEE 754 bit patterns. The current corpus is 3000 cases across five geometry classes, each run at
+scales x1, x1000 and x0.001, covering 28800 parallel offset calls and 2400 boolean calls. All
+113007 compared output lines are identical.
+
+Known differences from upstream `main` (0.9.0), which are **not** ported:
+
+- The parallel offset algorithm was rewritten in 0.9.0 (`RawOffsetBuilder`, topology based
+  stitching, `invalid_segments`, `JoinClass`). This port implements the 0.8.0 algorithm.
+- `PlineOffsetOptions.SliceJoinEps` was removed in 0.9.0 and replaced by `TouchingLoopBehavior`
+  and `CoincidentSegmentBehavior`, so tangential contacts and coincident spans are not
+  configurable here.
+- Arc segment math (`SegMidpoint`, `SegLength`, `SegClosestPoint`, `SegSplitAtPoint`) became
+  chord based in 0.9.0. This port uses the 0.8.0 angle based formulation, which loses accuracy
+  for very flat arcs at large radii: for a bulge of 1e-7 across a chord of 1e6 the midpoint is
+  off by about 1.5e-4, which exceeds the default position epsilon of 1e-5.
+- `pline_seg_intersect.rs` and `pline_intersects.rs` were substantially reworked in 0.9.0.
+
+Missing relative to 0.8.0:
+
+- `scan_for_self_intersect` has no C# equivalent, which leaves `PlineSelfIntersectOptions` and
+  `SelfIntersectsInclude` unused.
+
 ## Acknowledgements
 
 This is a C# port of the excellent [cavalier_contours](https://github.com/jbuckmccready/cavalier_contours) Rust library by [Jedidiah Buck McCready](https://github.com/jbuckmccready). The core algorithms for polyline offsetting and boolean operations are based on the original implementation.
