@@ -8,9 +8,12 @@ namespace CavalierContours.Core
     public static class BaseMath
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static (T Min, T Max) MinMax<T>(T v1, T v2) where T : IComparable<T>
+        public static (T Min, T Max) MinMax<T>(T v1, T v2) where T : struct, IFloatingPointIeee754<T>
         {
-            return v1.CompareTo(v2) < 0 ? (v1, v2) : (v2, v1);
+            // Matches Rust `if v1 < v2 { (v1, v2) } else { (v2, v1) }`, including the NaN
+            // behaviour: every comparison involving NaN is false, so the else branch is taken.
+            // CompareTo would order NaN below everything and give the opposite result.
+            return v1 < v2 ? (v1, v2) : (v2, v1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -78,7 +81,9 @@ namespace CavalierContours.Core
         {
             T four = T.CreateChecked(4);
             T two = T.CreateChecked(2);
-            Debug.Assert(T.Abs((b * b - four * a * c)) < T.CreateChecked(1e-5), "discriminant is not valid");
+            Debug.Assert(
+                T.Sqrt((b * b) - (four * a * c)).FuzzyEq(sqrtDiscriminant),
+                "discriminant is not valid");
             
             T denom = two * a;
             T sol1 = b < T.Zero ? (-b + sqrtDiscriminant) / denom : (-b - sqrtDiscriminant) / denom;
