@@ -72,12 +72,17 @@ namespace CavalierContours.Polyline
         /// boundaries. Self intersecting inputs are not rejected and may give unexpected results;
         /// screen them beforehand if that is a possibility.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="options"/> is null.</exception>
         public static PlineContainsResult PolylineContains<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
             PlineContainsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (pline1.VertexCount < 2
                 || !pline1.IsClosed
                 || pline2.VertexCount < 2

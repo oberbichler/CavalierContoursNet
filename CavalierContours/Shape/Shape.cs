@@ -43,8 +43,11 @@ namespace CavalierContours.Shape
         /// </summary>
         /// <param name="parentLoopIdx">Index of the input loop this offset was derived from.</param>
         /// <param name="indexedPline">The offset polyline with its spatial index.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="indexedPline"/> is null.</exception>
         public OffsetLoop(int parentLoopIdx, IndexedPolyline<T> indexedPline)
         {
+            ArgumentNullException.ThrowIfNull(indexedPline);
+
             ParentLoopIdx = parentLoopIdx;
             IndexedPline = indexedPline;
         }
@@ -79,8 +82,11 @@ namespace CavalierContours.Shape
         /// <param name="polyline">
         /// The polyline to index. It is stored by reference, not copied.
         /// </param>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> is null.</exception>
         public IndexedPolyline(Polyline<T> polyline)
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+
             Polyline = polyline;
             SpatialIndex = polyline.CreateApproxAabbIndex();
         }
@@ -102,8 +108,11 @@ namespace CavalierContours.Shape
         /// Self intersects are deliberately not handled here because the surrounding shape offset
         /// resolves intersections globally across all loops in a later step.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
         public List<Polyline<T>> ParallelOffsetForShape(T offset, ShapeOffsetOptions<T> options)
         {
+            ArgumentNullException.ThrowIfNull(options);
+
             var opts = new PlineOffsetOptions<T>
             {
                 AabbIndex = SpatialIndex,
@@ -203,8 +212,11 @@ namespace CavalierContours.Shape
         /// <param name="loopIdx1">Index of the first offset loop.</param>
         /// <param name="loopIdx2">Index of the second offset loop.</param>
         /// <param name="slicePoints">Intersection points between the two loops.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="slicePoints"/> is null.</exception>
         public SlicePointSet(int loopIdx1, int loopIdx2, List<PlineBasicIntersect<T>> slicePoints)
         {
+            ArgumentNullException.ThrowIfNull(slicePoints);
+
             LoopIdx1 = loopIdx1;
             LoopIdx2 = loopIdx2;
             SlicePoints = slicePoints;
@@ -304,8 +316,13 @@ namespace CavalierContours.Shape
         /// the right list. Use <see cref="FromPlines(IEnumerable{Polyline{T}})"/> to have that done
         /// automatically.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="ccwPlines"/> or <paramref name="cwPlines"/> or <paramref name="plinesIndex"/> is null.</exception>
         public Shape(List<IndexedPolyline<T>> ccwPlines, List<IndexedPolyline<T>> cwPlines, StaticAABB2DIndex<T> plinesIndex)
         {
+            ArgumentNullException.ThrowIfNull(ccwPlines);
+            ArgumentNullException.ThrowIfNull(cwPlines);
+            ArgumentNullException.ThrowIfNull(plinesIndex);
+
             _ccwPlines = new ReadOnlyCollection<IndexedPolyline<T>>(ccwPlines);
             _cwPlines = new ReadOnlyCollection<IndexedPolyline<T>>(cwPlines);
             PlinesIndex = plinesIndex;
@@ -329,8 +346,11 @@ namespace CavalierContours.Shape
         /// Mutating one of them afterwards invalidates both its own segment index and the shape's
         /// <see cref="PlinesIndex"/>, and any later offset will operate on stale bounds.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="plines"/> is null.</exception>
         public static Shape<T> FromPlines(IEnumerable<Polyline<T>> plines)
         {
+            ArgumentNullException.ThrowIfNull(plines);
+
             var ccwPlines = new List<IndexedPolyline<T>>();
             var cwPlines = new List<IndexedPolyline<T>>();
 
@@ -408,8 +428,11 @@ namespace CavalierContours.Shape
         /// and
         /// <see cref="StitchSlicesTogether(List{DissectedSlice{T}}, List{OffsetLoop{T}}, List{OffsetLoop{T}}, T, T)"/>.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
         public Shape<T> ParallelOffset(T offset, ShapeOffsetOptions<T> options)
         {
+            ArgumentNullException.ThrowIfNull(options);
+
             var (ccwOffsetLoops, cwOffsetLoops, offsetLoopsIndex) = CreateOffsetLoopsWithIndex(offset, options);
 
             if (ccwOffsetLoops.Count == 0 && cwOffsetLoops.Count == 0)
@@ -460,10 +483,13 @@ namespace CavalierContours.Shape
         /// loop coming from a hole. Exposed publicly so intermediate results can be visualized and
         /// tested.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
         public (List<OffsetLoop<T>> CcwOffsetLoops, List<OffsetLoop<T>> CwOffsetLoops, StaticAABB2DIndex<T> OffsetLoopsIndex) CreateOffsetLoopsWithIndex(
             T offset,
             ShapeOffsetOptions<T> options)
         {
+            ArgumentNullException.ThrowIfNull(options);
+
             var ccwOffsetLoops = new List<OffsetLoop<T>>();
             var cwOffsetLoops = new List<OffsetLoop<T>>();
             int parentIdx = 0;
@@ -570,12 +596,17 @@ namespace CavalierContours.Shape
         /// for each end of the overlap. Exposed publicly so intersection points can be visualized
         /// and tested.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="ccwOffsetLoops"/> or <paramref name="cwOffsetLoops"/> or <paramref name="offsetLoopsIndex"/> is null.</exception>
         public List<SlicePointSet<T>> FindIntersectsBetweenOffsetLoops(
             List<OffsetLoop<T>> ccwOffsetLoops,
             List<OffsetLoop<T>> cwOffsetLoops,
             StaticAABB2DIndex<T> offsetLoopsIndex,
             T posEqualEps)
         {
+            ArgumentNullException.ThrowIfNull(ccwOffsetLoops);
+            ArgumentNullException.ThrowIfNull(cwOffsetLoops);
+            ArgumentNullException.ThrowIfNull(offsetLoopsIndex);
+
             int offsetLoopCount = ccwOffsetLoops.Count + cwOffsetLoops.Count;
             var slicePointSets = new List<SlicePointSet<T>>();
             var visitedLoopPairs = new HashSet<ulong>();
@@ -699,6 +730,7 @@ namespace CavalierContours.Shape
         /// polylines, so nothing is copied. Exposed publicly so individual slices can be visualized
         /// and tested.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="ccwOffsetLoops"/> or <paramref name="cwOffsetLoops"/> or <paramref name="slicePointSets"/> or <paramref name="options"/> is null.</exception>
         public List<DissectedSlice<T>> CreateValidSlicesFromIntersects(
             List<OffsetLoop<T>> ccwOffsetLoops,
             List<OffsetLoop<T>> cwOffsetLoops,
@@ -706,6 +738,11 @@ namespace CavalierContours.Shape
             T offset,
             ShapeOffsetOptions<T> options)
         {
+            ArgumentNullException.ThrowIfNull(ccwOffsetLoops);
+            ArgumentNullException.ThrowIfNull(cwOffsetLoops);
+            ArgumentNullException.ThrowIfNull(slicePointSets);
+            ArgumentNullException.ThrowIfNull(options);
+
             int offsetLoopCount = ccwOffsetLoops.Count + cwOffsetLoops.Count;
             T posEqualEps = options.PosEqualEps;
             T offsetDistEps = options.OffsetDistEps;
@@ -933,6 +970,7 @@ namespace CavalierContours.Shape
         /// from the same source offset loop is preferred. Exposed publicly so the stitching can be
         /// observed and tested.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="slicesData"/> or <paramref name="ccwOffsetLoops"/> or <paramref name="cwOffsetLoops"/> is null.</exception>
         public Shape<T> StitchSlicesTogether(
             List<DissectedSlice<T>> slicesData,
             List<OffsetLoop<T>> ccwOffsetLoops,
@@ -940,6 +978,10 @@ namespace CavalierContours.Shape
             T posEqualEps,
             T sliceJoinEps)
         {
+            ArgumentNullException.ThrowIfNull(slicesData);
+            ArgumentNullException.ThrowIfNull(ccwOffsetLoops);
+            ArgumentNullException.ThrowIfNull(cwOffsetLoops);
+
             if (slicesData.Count == 0)
             {
                 return Empty();

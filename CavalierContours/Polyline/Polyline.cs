@@ -78,6 +78,10 @@ namespace CavalierContours.Polyline
         /// <exception cref="ArgumentNullException"><paramref name="vertexes"/> is null.</exception>
         public Polyline(IEnumerable<PlineVertex<T>> vertexes, bool isClosed)
         {
+            // Guarded explicitly so the exception names 'vertexes' rather than the 'collection'
+            // parameter of the List<T> constructor.
+            ArgumentNullException.ThrowIfNull(vertexes);
+
             _vertexData = new List<PlineVertex<T>>(vertexes);
             _isClosed = isClosed;
             _userdataView = _userdata.AsReadOnly();
@@ -173,7 +177,14 @@ namespace CavalierContours.Polyline
         /// <param name="vertexes">Vertexes to append, in order.</param>
         /// <exception cref="ArgumentNullException"><paramref name="vertexes"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ExtendVertexes(IEnumerable<PlineVertex<T>> vertexes) => _vertexData.AddRange(vertexes);
+        public void ExtendVertexes(IEnumerable<PlineVertex<T>> vertexes)
+        {
+            // Guarded explicitly so the exception names 'vertexes' rather than the 'collection'
+            // parameter of List<T>.AddRange.
+            ArgumentNullException.ThrowIfNull(vertexes);
+
+            _vertexData.AddRange(vertexes);
+        }
 
         /// <summary>
         /// Clears all existing user data values and replaces them with the values provided.
@@ -201,7 +212,14 @@ namespace CavalierContours.Polyline
         /// <param name="values">User data values to append.</param>
         /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AddUserDataValues(IEnumerable<ulong> values) => _userdata.AddRange(values);
+        public void AddUserDataValues(IEnumerable<ulong> values)
+        {
+            // Guarded explicitly so the exception names 'values' rather than the 'collection'
+            // parameter of List<T>.AddRange.
+            ArgumentNullException.ThrowIfNull(values);
+
+            _userdata.AddRange(values);
+        }
 
         /// <summary>
         /// Removes the vertex at the given index position without returning it, see

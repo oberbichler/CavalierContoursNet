@@ -276,8 +276,11 @@ namespace CavalierContours.Polyline
         /// Slices that were stitched together to form <paramref name="pline"/>; the list is wrapped
         /// in a read-only collection and exposed through <see cref="Subslices"/>.
         /// </param>
+        /// <exception cref="ArgumentNullException"><paramref name="subslices"/> is null.</exception>
         public BooleanResultPline(P pline, List<BooleanPlineSlice<T>> subslices)
         {
+            ArgumentNullException.ThrowIfNull(subslices);
+
             Pline = pline;
             _subslices = new ReadOnlyCollection<BooleanPlineSlice<T>>(subslices);
         }
@@ -399,8 +402,12 @@ namespace CavalierContours.Polyline
         /// <param name="negPlines">Whole polylines to record as negative subtracted space.</param>
         /// <param name="resultInfo">Information about what happened during the boolean operation.</param>
         /// <returns>A boolean result wrapping the given polylines.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="posPlines"/> or <paramref name="negPlines"/> is null.</exception>
         public static BooleanResult<P, T> FromWholePlines(IEnumerable<P> posPlines, IEnumerable<P> negPlines, BooleanResultInfo resultInfo)
         {
+            ArgumentNullException.ThrowIfNull(posPlines);
+            ArgumentNullException.ThrowIfNull(negPlines);
+
             var pos = new List<BooleanResultPline<P, T>>();
             foreach (var p in posPlines)
             {
@@ -891,8 +898,12 @@ namespace CavalierContours.Polyline
         /// </summary>
         /// <param name="basicIntersects">The single point intersects.</param>
         /// <param name="overlappingIntersects">The overlapping intersects.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="basicIntersects"/> or <paramref name="overlappingIntersects"/> is null.</exception>
         public PlineIntersectsCollection(List<PlineBasicIntersect<T>> basicIntersects, List<PlineOverlappingIntersect<T>> overlappingIntersects)
         {
+            ArgumentNullException.ThrowIfNull(basicIntersects);
+            ArgumentNullException.ThrowIfNull(overlappingIntersects);
+
             BasicIntersects = basicIntersects;
             OverlappingIntersects = overlappingIntersects;
         }
@@ -997,6 +1008,7 @@ namespace CavalierContours.Polyline
         /// segments at the intersect points.
         /// </param>
         /// <returns>The overlapping slice spanning from the start to the end intersect.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> is null.</exception>
         public static OverlappingSlice<T> New(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
@@ -1004,6 +1016,9 @@ namespace CavalierContours.Polyline
             PlineOverlappingIntersect<T>? endIntr,
             T posEqualEps)
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+
             var startV1 = pline1.Get(startIntr.StartIndex1);
             var startV2 = pline1.Get(pline1.NextWrappingIndex(startIntr.StartIndex1));
             var startU1 = pline2.Get(startIntr.StartIndex2);

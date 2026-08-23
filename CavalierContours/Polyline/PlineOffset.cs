@@ -626,10 +626,13 @@ namespace CavalierContours.Polyline
         /// zero or below collapse into points. The result is generally self intersecting; the
         /// invalid parts are removed later by the slicing step.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> is null.</exception>
         public static O CreateRawOffsetPolyline<O, T>(IPlineSource<T> polyline, T offset, T posEqualEps)
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+
             int vc = polyline.VertexCount;
             if (vc < 2)
             {
@@ -801,6 +804,7 @@ namespace CavalierContours.Polyline
         /// <paramref name="point"/> than the offset magnitude less
         /// <paramref name="offsetTol"/>; otherwise <see langword="false"/>.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="aabbIndex"/> or <paramref name="queryStack"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool PointValidForOffset<T>(
             IPlineSource<T> polyline,
@@ -812,6 +816,10 @@ namespace CavalierContours.Polyline
             T offsetTol)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(aabbIndex);
+            ArgumentNullException.ThrowIfNull(queryStack);
+
             T absOffset = T.Abs(offset) - offsetTol;
             T minDist = absOffset * absOffset;
             var visitor = new PointValidForOffsetVisitor<T>(polyline, minDist, point, posEqualEps);
@@ -963,6 +971,7 @@ namespace CavalierContours.Polyline
         /// <see cref="SlicesFromDualRawOffsets{T}(IPlineSource{T}, IPlineSource{T}, IPlineSource{T}, StaticAABB2DIndex{T}, T, PlineOffsetOptions{T})"/>
         /// otherwise.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="originalPolyline"/> or <paramref name="rawOffsetPolyline"/> or <paramref name="origPolylineIndex"/> or <paramref name="options"/> is null.</exception>
         public static List<PlineViewData<T>> SlicesFromRawOffset<T>(
             IPlineSource<T> originalPolyline,
             IPlineSource<T> rawOffsetPolyline,
@@ -971,6 +980,11 @@ namespace CavalierContours.Polyline
             PlineOffsetOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(originalPolyline);
+            ArgumentNullException.ThrowIfNull(rawOffsetPolyline);
+            ArgumentNullException.ThrowIfNull(origPolylineIndex);
+            ArgumentNullException.ThrowIfNull(options);
+
             var result = new List<PlineViewData<T>>();
             if (rawOffsetPolyline.VertexCount < 2)
             {
@@ -1250,6 +1264,7 @@ namespace CavalierContours.Polyline
         /// to be handled. It costs an extra raw offset and more intersection work than
         /// <see cref="SlicesFromRawOffset{T}(IPlineSource{T}, IPlineSource{T}, StaticAABB2DIndex{T}, T, PlineOffsetOptions{T})"/>.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="originalPolyline"/> or <paramref name="rawOffsetPolyline"/> or <paramref name="dualRawOffsetPolyline"/> or <paramref name="origPolylineIndex"/> or <paramref name="options"/> is null.</exception>
         public static List<PlineViewData<T>> SlicesFromDualRawOffsets<T>(
             IPlineSource<T> originalPolyline,
             IPlineSource<T> rawOffsetPolyline,
@@ -1259,6 +1274,12 @@ namespace CavalierContours.Polyline
             PlineOffsetOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(originalPolyline);
+            ArgumentNullException.ThrowIfNull(rawOffsetPolyline);
+            ArgumentNullException.ThrowIfNull(dualRawOffsetPolyline);
+            ArgumentNullException.ThrowIfNull(origPolylineIndex);
+            ArgumentNullException.ThrowIfNull(options);
+
             var result = new List<PlineViewData<T>>();
             if (rawOffsetPolyline.VertexCount < 2)
             {
@@ -1513,6 +1534,7 @@ namespace CavalierContours.Polyline
         /// found within <see cref="PlineOffsetOptions{T}.SliceJoinEps"/>. Slices that form a
         /// closed circuit produce a closed polyline; leftover chains produce open ones.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="rawOffsetPline"/> or <paramref name="slices"/> or <paramref name="options"/> is null.</exception>
         public static List<O> StitchSlicesTogether<O, T>(
             IPlineSource<T> rawOffsetPline,
             IReadOnlyList<PlineViewData<T>> slices,
@@ -1522,6 +1544,10 @@ namespace CavalierContours.Polyline
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(rawOffsetPline);
+            ArgumentNullException.ThrowIfNull(slices);
+            ArgumentNullException.ThrowIfNull(options);
+
             var result = new List<O>();
             if (slices.Count == 0)
             {
@@ -1774,10 +1800,14 @@ namespace CavalierContours.Polyline
         /// back together end to end into closed or open polylines. Repeated positions in the input
         /// are removed up front, since duplicate vertexes have no tangent to offset along.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="options"/> is null.</exception>
         public static List<O> ParallelOffset<O, T>(IPlineSource<T> polyline, T offset, PlineOffsetOptions<T> options)
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (polyline.VertexCount < 2)
             {
                 return new List<O>();

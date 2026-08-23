@@ -143,10 +143,13 @@ namespace CavalierContours.Polyline
         /// <typeparam name="T">Floating point type used for the vertexes.</typeparam>
         /// <param name="pline">Polyline to test.</param>
         /// <returns><see langword="true"/> if the vertex count is zero.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsEmpty<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             return pline.VertexCount == 0;
         }
 
@@ -156,10 +159,13 @@ namespace CavalierContours.Polyline
         /// <returns>
         /// The last vertex, or <see langword="null"/> if the polyline is empty.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static PlineVertex<T>? Last<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             int vc = pline.VertexCount;
             return vc == 0 ? null : pline.Get(vc - 1);
         }
@@ -172,10 +178,13 @@ namespace CavalierContours.Polyline
         /// <typeparam name="T">Floating point type used for the vertexes.</typeparam>
         /// <param name="pline">Polyline to inspect.</param>
         /// <returns>The number of segments.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SegmentCount<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             int vc = pline.VertexCount;
             if (vc < 2) return 0;
             return pline.IsClosed ? vc : vc - 1;
@@ -200,10 +209,13 @@ namespace CavalierContours.Polyline
         /// <param name="pline">Polyline whose vertex count defines the wrap point.</param>
         /// <param name="i">Current vertex index.</param>
         /// <returns><c>i + 1</c>, or <c>0</c> if that would reach or pass the vertex count.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int NextWrappingIndex<T>(this IPlineSource<T> pline, int i)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             int next = i + 1;
             return next >= pline.VertexCount ? 0 : next;
         }
@@ -227,10 +239,13 @@ namespace CavalierContours.Polyline
         /// <param name="pline">Polyline whose vertex count defines the wrap point.</param>
         /// <param name="i">Current vertex index.</param>
         /// <returns><c>i - 1</c>, or <c>VertexCount - 1</c> if <paramref name="i"/> is zero.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int PrevWrappingIndex<T>(this IPlineSource<T> pline, int i)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             return i == 0 ? pline.VertexCount - 1 : i - 1;
         }
 
@@ -262,10 +277,13 @@ namespace CavalierContours.Polyline
         /// <param name="startIndex">Index to start from, must be less than the vertex count.</param>
         /// <param name="endIndex">Index to walk to.</param>
         /// <returns>The forward wrapping distance between the two indexes.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int FwdWrappingDist<T>(this IPlineSource<T> pline, int startIndex, int endIndex)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             int vc = pline.VertexCount;
             Debug.Assert(startIndex < vc);
             return startIndex <= endIndex ? endIndex - startIndex : vc - startIndex + endIndex;
@@ -299,10 +317,13 @@ namespace CavalierContours.Polyline
         /// Number of positions to advance, must not be greater than the vertex count.
         /// </param>
         /// <returns>The vertex index after applying the offset.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int FwdWrappingIndex<T>(this IPlineSource<T> pline, int startIndex, int offset)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             int vc = pline.VertexCount;
             Debug.Assert(startIndex < vc);
             Debug.Assert(offset <= vc);
@@ -320,7 +341,17 @@ namespace CavalierContours.Polyline
         /// <typeparam name="T">Floating point type used for the vertexes.</typeparam>
         /// <param name="pline">Polyline to iterate.</param>
         /// <returns>A lazily evaluated sequence of segment vertex pairs.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static IEnumerable<(PlineVertex<T> V1, PlineVertex<T> V2)> IterSegments<T>(this IPlineSource<T> pline)
+            where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
+        {
+            // Validated in a non-iterator wrapper: the body of an iterator method does not run
+            // until the first MoveNext, which would defer the guard past the offending call.
+            ArgumentNullException.ThrowIfNull(pline);
+            return IterSegmentsCore(pline);
+        }
+
+        private static IEnumerable<(PlineVertex<T> V1, PlineVertex<T> V2)> IterSegmentsCore<T>(IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
             int vc = pline.VertexCount;
@@ -341,7 +372,16 @@ namespace CavalierContours.Polyline
         /// <typeparam name="T">Floating point type used for the vertexes.</typeparam>
         /// <param name="pline">Polyline to iterate.</param>
         /// <returns>A lazily evaluated sequence of all vertexes.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static IEnumerable<PlineVertex<T>> IterVertexes<T>(this IPlineSource<T> pline)
+            where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
+        {
+            // See IterSegments for why the guard lives in a non-iterator wrapper.
+            ArgumentNullException.ThrowIfNull(pline);
+            return IterVertexesCore(pline);
+        }
+
+        private static IEnumerable<PlineVertex<T>> IterVertexesCore<T>(IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
             int vc = pline.VertexCount;
@@ -360,7 +400,16 @@ namespace CavalierContours.Polyline
         /// <typeparam name="T">Floating point type used for the vertexes.</typeparam>
         /// <param name="pline">Polyline to iterate.</param>
         /// <returns>A lazily evaluated sequence of segment index pairs.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static IEnumerable<(int I, int J)> IterSegmentIndexes<T>(this IPlineSource<T> pline)
+            where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
+        {
+            // See IterSegments for why the guard lives in a non-iterator wrapper.
+            ArgumentNullException.ThrowIfNull(pline);
+            return IterSegmentIndexesCore(pline);
+        }
+
+        private static IEnumerable<(int I, int J)> IterSegmentIndexesCore<T>(IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
             int vc = pline.VertexCount;
@@ -388,9 +437,12 @@ namespace CavalierContours.Polyline
         /// <param name="bulge">
         /// Bulge of the segment starting at the new vertex, see <see cref="PlineVertex{T}.Bulge"/>.
         /// </param>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static void Add<T>(this IPlineSourceMut<T> pline, T x, T y, T bulge)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             pline.AddVertex(new PlineVertex<T>(x, y, bulge));
         }
 
@@ -409,9 +461,13 @@ namespace CavalierContours.Polyline
         /// <param name="other">Second polyline.</param>
         /// <param name="eps">Epsilon used for the vertex comparisons.</param>
         /// <returns><see langword="true"/> if the polylines are fuzzy equal.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> or <paramref name="other"/> is null.</exception>
         public static bool FuzzyEqEps<T>(this IPlineSource<T> self, IPlineSource<T> other, T eps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(self);
+            ArgumentNullException.ThrowIfNull(other);
+
             if (self.IsClosed != other.IsClosed || self.VertexCount != other.VertexCount) return false;
             int vc = self.VertexCount;
             for (int i = 0; i < vc; i++)
@@ -429,9 +485,13 @@ namespace CavalierContours.Polyline
         /// <param name="self">First polyline.</param>
         /// <param name="other">Second polyline.</param>
         /// <returns><see langword="true"/> if the polylines are fuzzy equal.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> or <paramref name="other"/> is null.</exception>
         public static bool FuzzyEq<T>(this IPlineSource<T> self, IPlineSource<T> other)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(self);
+            ArgumentNullException.ThrowIfNull(other);
+
             return self.FuzzyEqEps(other, Fuzzy<T>.Epsilon);
         }
 
@@ -448,9 +508,12 @@ namespace CavalierContours.Polyline
         /// The axis aligned bounding box of the polyline, or <see langword="null"/> if the polyline
         /// has no segments, that is fewer than two vertexes.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static AABB<T>? Extents<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             if (pline.SegmentCount() == 0) return null;
 
             var v1 = pline.Get(0);
@@ -490,9 +553,12 @@ namespace CavalierContours.Polyline
         /// <typeparam name="T">Floating point type used for the vertexes.</typeparam>
         /// <param name="pline">Polyline to measure.</param>
         /// <returns>The total path length, zero for a polyline without segments.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static T PathLength<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             T len = T.Zero;
             foreach (var (v1, v2) in pline.IterSegments())
             {
@@ -525,9 +591,12 @@ namespace CavalierContours.Polyline
         /// <returns>
         /// The signed enclosed area, or zero if the polyline is open.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static T Area<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             if (!pline.IsClosed) return T.Zero;
 
             T doubleTotalArea = T.Zero;
@@ -575,9 +644,12 @@ namespace CavalierContours.Polyline
         /// <c>PlineOrientation.Open</c> for an open polyline, otherwise
         /// <c>PlineOrientation.Clockwise</c> or <c>PlineOrientation.CounterClockwise</c>.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static PlineOrientation Orientation<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             if (!pline.IsClosed) return PlineOrientation.Open;
             return pline.Area() < T.Zero ? PlineOrientation.Clockwise : PlineOrientation.CounterClockwise;
         }
@@ -605,9 +677,12 @@ namespace CavalierContours.Polyline
         /// the polyline has fewer than two vertexes, or that no vertex was removed, and it exists
         /// so the allocation and copy can be avoided. Callers should treat it as "keep the input".
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static Polyline<T>? RemoveRepeatPos<T>(this IPlineSource<T> pline, T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             int vc = pline.VertexCount;
             if (vc < 2) return null;
 
@@ -665,9 +740,12 @@ namespace CavalierContours.Polyline
         /// A spatial index of the segment bounding boxes, empty if the polyline has fewer than two
         /// vertexes.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static StaticAABB2DIndex<T> CreateApproxAabbIndex<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             int vc = pline.VertexCount;
             if (vc < 2) return new StaticAABB2DIndexBuilder<T>(0).Build();
 
@@ -696,9 +774,12 @@ namespace CavalierContours.Polyline
         /// A spatial index of the segment bounding boxes, empty if the polyline has fewer than two
         /// vertexes.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static StaticAABB2DIndex<T> CreateAabbIndex<T>(this IPlineSource<T> pline)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             int vc = pline.VertexCount;
             if (vc < 2) return new StaticAABB2DIndexBuilder<T>(0).Build();
 
@@ -731,9 +812,12 @@ namespace CavalierContours.Polyline
         /// The segment start index, the closest point and its distance, or <see langword="null"/>
         /// if the polyline is empty.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static ClosestPointResult<T>? ClosestPoint<T>(this IPlineSource<T> pline, Vector2<T> point, T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             if (pline.IsEmpty()) return null;
 
             Vector2<T> firstPos = pline.Get(0).Pos();
@@ -797,9 +881,12 @@ namespace CavalierContours.Polyline
         /// <param name="pline">Polyline to test against.</param>
         /// <param name="point">Point to compute the winding number for.</param>
         /// <returns>The winding number, see the remarks for its interpretation.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static int WindingNumber<T>(this IPlineSource<T> pline, Vector2<T> point)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             if (!pline.IsClosed || pline.VertexCount < 2) return 0;
 
             int ProcessLineWinding(PlineVertex<T> v1, PlineVertex<T> v2, Vector2<T> pt)
@@ -916,9 +1003,12 @@ namespace CavalierContours.Polyline
         /// for a degenerate <paramref name="errorDistance"/>. Upstream returns <c>None</c> in this
         /// case instead of signalling an error.
         /// </exception>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static Polyline<T> ArcsToApproxLines<T>(this IPlineSource<T> pline, T errorDistance)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             var result = new Polyline<T>(pline.IsClosed);
             if (pline.VertexCount == 0) return result;
 
@@ -1002,9 +1092,12 @@ namespace CavalierContours.Polyline
         /// <paramref name="targetPathLength"/> is non-positive and the polyline is empty, so the
         /// first vertex cannot be read.
         /// </exception>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static (bool Success, int SegIndex, Vector2<T> Point, T AccLength) FindPointAtPathLength<T>(this IPlineSource<T> pline, T targetPathLength)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             if (targetPathLength <= T.Zero)
             {
                 return (true, 0, pline.Get(0).Pos(), T.Zero);
@@ -1057,9 +1150,12 @@ namespace CavalierContours.Polyline
         /// <param name="self">Polyline to append to.</param>
         /// <param name="vertex">Vertex to append or merge.</param>
         /// <param name="posEqualEps">Epsilon used for the positional comparison.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> is null.</exception>
         public static void AddOrReplaceVertex<T>(this IPlineSourceMut<T> self, PlineVertex<T> vertex, T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(self);
+
             int vc = self.VertexCount;
             if (vc == 0)
             {
@@ -1091,9 +1187,13 @@ namespace CavalierContours.Polyline
         /// <param name="self">Polyline to append to.</param>
         /// <param name="other">Polyline whose vertexes are copied.</param>
         /// <param name="posEqualEps">Epsilon used for the positional comparisons.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> or <paramref name="other"/> is null.</exception>
         public static void ExtendRemoveRepeat<T>(this IPlineSourceMut<T> self, IPlineSource<T> other, T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(self);
+            ArgumentNullException.ThrowIfNull(other);
+
             int otherCount = other.VertexCount;
             for (int i = 0; i < otherCount; i++)
             {
@@ -1117,10 +1217,13 @@ namespace CavalierContours.Polyline
         /// <param name="pline">Polyline to copy.</param>
         /// <param name="posEqualEps">Epsilon used for the positional comparisons.</param>
         /// <returns>The newly created polyline.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static O CreateFromRemoveRepeat<O, T>(IPlineSource<T> pline, T posEqualEps)
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             var result = new O();
             result.SetIsClosed(pline.IsClosed);
             int plineCount = pline.VertexCount;
@@ -1152,10 +1255,13 @@ namespace CavalierContours.Polyline
         /// <typeparam name="T">Floating point type used for the vertexes.</typeparam>
         /// <param name="pline">Polyline to copy.</param>
         /// <returns>The newly created polyline.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline"/> is null.</exception>
         public static O CreateFrom<O, T>(IPlineSource<T> pline)
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline);
+
             var result = new O();
             result.SetIsClosed(pline.IsClosed);
             int count = pline.VertexCount;
@@ -1211,9 +1317,12 @@ namespace CavalierContours.Polyline
         /// it exists so the allocation and copy can be avoided. Callers should treat it as "keep
         /// the input".
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> is null.</exception>
         public static Polyline<T>? RemoveRedundant<T>(this IPlineSource<T> self, T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(self);
+
             int vc = self.VertexCount;
             if (vc < 2)
             {
@@ -1521,9 +1630,12 @@ namespace CavalierContours.Polyline
         /// means the request was not applicable, namely that the polyline is open, that it has
         /// fewer than two vertexes, or that <paramref name="startIndex"/> is out of bounds.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> is null.</exception>
         public static Polyline<T>? RotateStart<T>(this IPlineSource<T> self, int startIndex, Vector2<T> point, T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(self);
+
             int vc = self.VertexCount;
             if (!self.IsClosed || vc < 2 || startIndex < 0 || startIndex > vc - 1)
             {
@@ -1592,9 +1704,12 @@ namespace CavalierContours.Polyline
         /// </remarks>
         /// <typeparam name="T">Floating point type used for the vertexes.</typeparam>
         /// <param name="self">Polyline to invert.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> is null.</exception>
         public static void InvertDirection<T>(this IPlineSourceMut<T> self)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(self);
+
             int vc = self.VertexCount;
             if (vc < 2) return;
 

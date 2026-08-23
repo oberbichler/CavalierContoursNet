@@ -263,8 +263,11 @@ namespace CavalierContours.Polyline
         /// The vertex at <paramref name="index"/>, or <see langword="null"/> if
         /// <paramref name="index"/> is negative or not less than <see cref="VertexCount"/>.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="source"/> is null.</exception>
         public PlineVertex<T>? GetVertex(IPlineSource<T> source, int index)
         {
+            ArgumentNullException.ThrowIfNull(source);
+
             // Mirrors Rust's Option-returning get_vertex, whose index is a usize. The unsigned
             // compare catches negatives too, which would otherwise index the source array.
             if ((uint)index >= (uint)VertexCount) return null;
@@ -390,6 +393,7 @@ namespace CavalierContours.Polyline
         /// <see cref="CreateOnSingleSegment(IPlineSource{T}, int, PlineVertex{T}, Vector2{T}, T)"/>
         /// when the selection lies on a single segment.
         /// </exception>
+        /// <exception cref="ArgumentNullException"><paramref name="source"/> is null.</exception>
         public static PlineViewData<T> Create(
             IPlineSource<T> source,
             int startIndex,
@@ -399,6 +403,8 @@ namespace CavalierContours.Polyline
             int traverseCount,
             T posEqualEps)
         {
+            ArgumentNullException.ThrowIfNull(source);
+
             // Upstream uses assert!, which is active in release builds. With Debug.Assert a
             // release build would silently produce endIndexOffset = -1 and a one vertex view.
             if (traverseCount == 0)
@@ -443,8 +449,11 @@ namespace CavalierContours.Polyline
         /// <paramref name="source"/> has fewer than two vertexes and therefore no segments. This
         /// mirrors the upstream <c>assert!</c>, which is active in release builds as well.
         /// </exception>
+        /// <exception cref="ArgumentNullException"><paramref name="source"/> is null.</exception>
         public static PlineViewData<T> FromEntirePline(IPlineSource<T> source)
         {
+            ArgumentNullException.ThrowIfNull(source);
+
             int vc = source.VertexCount;
             // Upstream uses assert!, active in release builds.
             if (vc < 2)
@@ -493,12 +502,15 @@ namespace CavalierContours.Polyline
         /// <paramref name="source"/> is closed and has fewer than two vertexes. This mirrors the
         /// upstream <c>assert!</c>, which is active in release builds as well.
         /// </exception>
+        /// <exception cref="ArgumentNullException"><paramref name="source"/> is null.</exception>
         public static PlineViewData<T>? FromNewStart(
             IPlineSource<T> source,
             Vector2<T> startPoint,
             int startIndex,
             T posEqualEps)
         {
+            ArgumentNullException.ThrowIfNull(source);
+
             if (!source.IsClosed)
             {
                 // Upstream is `source.last()?.pos()`, so an empty source yields None rather
@@ -577,6 +589,7 @@ namespace CavalierContours.Polyline
         /// segment, and when the slice degenerates across a near-coincident vertex, which would
         /// otherwise yield a two vertex view of zero path length.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="source"/> is null.</exception>
         public static PlineViewData<T>? FromSlicePoints(
             IPlineSource<T> source,
             Vector2<T> startPoint,
@@ -585,6 +598,8 @@ namespace CavalierContours.Polyline
             int endIndex,
             T posEqualEps)
         {
+            ArgumentNullException.ThrowIfNull(source);
+
             Debug.Assert(startIndex <= endIndex || source.IsClosed, "startIndex must be <= endIndex if open");
 
             int nextIdx = source.NextWrappingIndex(startIndex);
@@ -683,8 +698,11 @@ namespace CavalierContours.Polyline
         /// <returns>
         /// The first violated condition, or <c>ViewDataValidation.IsValid</c> if all checks pass.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="source"/> is null.</exception>
         public ViewDataValidation ValidateForSource(IPlineSource<T> source)
         {
+            ArgumentNullException.ThrowIfNull(source);
+
             if (source.VertexCount < 2) return ViewDataValidation.SourceHasNoSegments;
             if (EndIndexOffset > source.VertexCount) return ViewDataValidation.OffsetOutOfRange;
 

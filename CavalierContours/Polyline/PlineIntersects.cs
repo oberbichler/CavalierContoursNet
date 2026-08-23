@@ -34,12 +34,16 @@ namespace CavalierContours.Polyline
         /// two bulges cancel out, since the two segments then trace the same arc in opposite
         /// directions. An intersect that falls exactly on the shared vertex is not reported.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="visitor"/> is null.</exception>
         public static bool VisitLocalSelfIntersects<T>(
             IPlineSource<T> polyline,
             IPlineIntersectVisitor<T> visitor,
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(visitor);
+
             int vc = polyline.VertexCount;
             if (vc < 2)
             {
@@ -289,6 +293,7 @@ namespace CavalierContours.Polyline
         /// end uses the second to last vertex index so that the index always denotes a segment
         /// start.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="aabbIndex"/> or <paramref name="visitor"/> is null.</exception>
         public static bool VisitGlobalSelfIntersects<T>(
             IPlineSource<T> polyline,
             StaticAABB2DIndex<T> aabbIndex,
@@ -296,6 +301,10 @@ namespace CavalierContours.Polyline
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(aabbIndex);
+            ArgumentNullException.ThrowIfNull(visitor);
+
             int vc = polyline.VertexCount;
             if (vc < 3)
             {
@@ -395,6 +404,7 @@ namespace CavalierContours.Polyline
         /// All self intersects found, local ones first and global ones after. No deduplication is
         /// performed.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="aabbIndex"/> is null.</exception>
         public static List<PlineBasicIntersect<T>> AllSelfIntersectsAsBasic<T>(
             IPlineSource<T> polyline,
             StaticAABB2DIndex<T> aabbIndex,
@@ -402,6 +412,9 @@ namespace CavalierContours.Polyline
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(aabbIndex);
+
             var visitor = new BasicSelfIntersectsVisitor<T>(includeOverlapping);
             VisitLocalSelfIntersects(polyline, visitor, posEqualEps);
             VisitGlobalSelfIntersects(polyline, aabbIndex, visitor, posEqualEps);
@@ -483,6 +496,7 @@ namespace CavalierContours.Polyline
         /// <see cref="PlineBoolean.VisitIntersects{T}(IPlineSource{T}, IPlineSource{T}, ITwoPlinesIntersectVisitor{T}, FindIntersectsOptions{T})"/>
         /// only ends the inner query on <see langword="false"/> and keeps iterating the outer loop.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="visitor"/> or <paramref name="options"/> is null.</exception>
         public static void VisitIntersects<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
@@ -490,6 +504,11 @@ namespace CavalierContours.Polyline
             FindIntersectsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(visitor);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (pline1.VertexCount < 2 || pline2.VertexCount < 2)
             {
                 return;
@@ -643,12 +662,17 @@ namespace CavalierContours.Polyline
         /// deduplicated afterwards so that a point common to two adjacent segments is reported
         /// once.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="options"/> is null.</exception>
         public static PlineIntersectsCollection<T> FindIntersects<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
             FindIntersectsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (pline1.VertexCount < 2 || pline2.VertexCount < 2)
             {
                 return PlineIntersectsCollection<T>.NewEmpty();
@@ -730,12 +754,17 @@ namespace CavalierContours.Polyline
         /// intersect. <see langword="false"/> otherwise, including when either polyline has fewer
         /// than two vertexes.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="options"/> is null.</exception>
         public static bool ScanForIntersect<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
             FindIntersectsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(options);
+
             var visitor = new ScanForIntersectVisitor<T>();
             VisitIntersects(pline1, pline2, visitor, options);
             return visitor.FoundIntersect;
@@ -766,6 +795,7 @@ namespace CavalierContours.Polyline
         /// into one slice. If the last slice ends where the first one begins, the two are merged as
         /// well, so that a slice wrapping around the polyline start is returned as a single entry.
         /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="intersects"/> or <paramref name="pline1"/> or <paramref name="pline2"/> is null.</exception>
         public static List<OverlappingSlice<T>> SortAndJoinOverlappingIntersects<T>(
             List<PlineOverlappingIntersect<T>> intersects,
             IPlineSource<T> pline1,
@@ -773,6 +803,10 @@ namespace CavalierContours.Polyline
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(intersects);
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+
             var result = new List<OverlappingSlice<T>>();
 
             if (intersects.Count == 0)

@@ -46,7 +46,13 @@ namespace CavalierContours.Spatial
         /// Callback invoked for each hit; it returns <see langword="true"/> to continue the query
         /// and <see langword="false"/> to stop it.
         /// </param>
-        public DelegateQueryVisitor(Func<int, bool> del) => _delegate = del;
+        /// <exception cref="ArgumentNullException"><paramref name="del"/> is null.</exception>
+        public DelegateQueryVisitor(Func<int, bool> del)
+        {
+            ArgumentNullException.ThrowIfNull(del);
+
+            _delegate = del;
+        }
 
         /// <summary>
         /// Forwards <paramref name="indexPos"/> to the wrapped delegate.
@@ -103,7 +109,13 @@ namespace CavalierContours.Spatial
         /// Callback invoked with the index position and the squared distance; it returns
         /// <see langword="true"/> to continue the search and <see langword="false"/> to stop it.
         /// </param>
-        public DelegateNeighborVisitor(Func<int, T, bool> del) => _delegate = del;
+        /// <exception cref="ArgumentNullException"><paramref name="del"/> is null.</exception>
+        public DelegateNeighborVisitor(Func<int, T, bool> del)
+        {
+            ArgumentNullException.ThrowIfNull(del);
+
+            _delegate = del;
+        }
 
         /// <summary>
         /// Forwards the visited neighbor to the wrapped delegate.
@@ -773,8 +785,11 @@ namespace CavalierContours.Spatial
         /// <see langword="true"/> if the query ran to completion, <see langword="false"/> if the
         /// visitor stopped it early.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="stack"/> is null.</exception>
         public bool VisitQueryWithStack<V>(T minX, T minY, T maxX, T maxY, ref V visitor, List<int> stack) where V : struct, IQueryVisitor
         {
+            ArgumentNullException.ThrowIfNull(stack);
+
             if (_numItems == 0) return true;
             return VisitQueryWithStackImpl(minX, minY, maxX, maxY, ref visitor, stack);
         }
@@ -795,8 +810,11 @@ namespace CavalierContours.Spatial
         /// <see langword="true"/> if the query ran to completion, <see langword="false"/> if the
         /// visitor stopped it early.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="visitor"/> is null.</exception>
         public bool VisitQuery(T minX, T minY, T maxX, T maxY, Func<int, bool> visitor)
         {
+            ArgumentNullException.ThrowIfNull(visitor);
+
             var v = new DelegateQueryVisitor(visitor);
             return VisitQuery(minX, minY, maxX, maxY, ref v);
         }
@@ -822,8 +840,12 @@ namespace CavalierContours.Spatial
         /// <see langword="true"/> if the query ran to completion, <see langword="false"/> if the
         /// visitor stopped it early.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="visitor"/> or <paramref name="stack"/> is null.</exception>
         public bool VisitQueryWithStack(T minX, T minY, T maxX, T maxY, Func<int, bool> visitor, List<int> stack)
         {
+            ArgumentNullException.ThrowIfNull(visitor);
+            ArgumentNullException.ThrowIfNull(stack);
+
             var v = new DelegateQueryVisitor(visitor);
             return VisitQueryWithStack(minX, minY, maxX, maxY, ref v, stack);
         }
@@ -917,8 +939,11 @@ namespace CavalierContours.Spatial
         /// <see langword="true"/> if all items were visited, <see langword="false"/> if the visitor
         /// stopped the search early.
         /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="queue"/> is null.</exception>
         public bool VisitNeighborsWithQueue<V>(T x, T y, ref V visitor, PriorityQueue<NeighborsState, T> queue) where V : struct, INeighborVisitor<T>
         {
+            ArgumentNullException.ThrowIfNull(queue);
+
             if (_numItems == 0) return true;
             return VisitNeighborsWithQueueImpl(x, y, ref visitor, queue);
         }
