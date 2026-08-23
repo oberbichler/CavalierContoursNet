@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -12,7 +13,7 @@ namespace CavalierContours.Core
         FalseIntersect
     }
 
-    public readonly struct LineLineIntr<T>
+    public readonly struct LineLineIntr<T> : IEquatable<LineLineIntr<T>>
         where T : struct, IFloatingPointIeee754<T>
     {
         public readonly LineLineIntrKind Kind;
@@ -32,6 +33,72 @@ namespace CavalierContours.Core
         public static LineLineIntr<T> TrueIntersect(T seg1T, T seg2T) => new(LineLineIntrKind.TrueIntersect, seg1T, seg2T, default);
         public static LineLineIntr<T> FalseIntersect(T seg1T, T seg2T) => new(LineLineIntrKind.FalseIntersect, seg1T, seg2T, default);
         public static LineLineIntr<T> Overlapping(T seg2T0, T seg2T1) => new(LineLineIntrKind.Overlapping, default, seg2T0, seg2T1);
+
+        /// <summary>
+        /// The first overlap parameter (<c>seg2_t0</c>) along segment 2, valid only when
+        /// <see cref="Kind"/> is <see cref="LineLineIntrKind.Overlapping"/>.
+        /// </summary>
+        /// <remarks>
+        /// This is an alias for the same storage as <see cref="Seg2T"/>; it does not add a field.
+        /// It exists because <see cref="Seg2T"/> means <c>seg2_t</c> for the
+        /// <see cref="LineLineIntrKind.TrueIntersect"/> and
+        /// <see cref="LineLineIntrKind.FalseIntersect"/> kinds but <c>seg2_t0</c> for
+        /// <see cref="LineLineIntrKind.Overlapping"/>.
+        /// </remarks>
+        public T OverlapSeg2T0
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                Debug.Assert(Kind == LineLineIntrKind.Overlapping, "OverlapSeg2T0 is only meaningful for Overlapping results.");
+                return Seg2T;
+            }
+        }
+
+        /// <summary>
+        /// The second overlap parameter (<c>seg2_t1</c>) along segment 2, valid only when
+        /// <see cref="Kind"/> is <see cref="LineLineIntrKind.Overlapping"/>.
+        /// </summary>
+        /// <remarks>
+        /// This is an alias for the same storage as <see cref="Seg2T1"/>; it does not add a field.
+        /// It exists to pair with <see cref="OverlapSeg2T0"/> and make the <c>seg2_t0</c> /
+        /// <c>seg2_t1</c> pairing explicit at the call site.
+        /// </remarks>
+        public T OverlapSeg2T1
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                Debug.Assert(Kind == LineLineIntrKind.Overlapping, "OverlapSeg2T1 is only meaningful for Overlapping results.");
+                return Seg2T1;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // Matches Rust's derived PartialEq: IEEE 754 comparison, so NaN != NaN and 0.0 == -0.0.
+        // T.Equals would treat NaN as equal to itself.
+        //
+        // Field-wise comparison is correct despite the field overloading documented above
+        // (for Overlapping, Seg2T carries seg2_t0 and Seg2T1 carries seg2_t1, while Seg1T is
+        // default): Kind is compared first, so two values can only reach the payload comparison
+        // when they interpret the same fields the same way.
+        public bool Equals(LineLineIntr<T> other)
+        {
+            return Kind == other.Kind
+                && Seg1T == other.Seg1T
+                && Seg2T == other.Seg2T
+                && Seg2T1 == other.Seg2T1;
+        }
+
+        public override bool Equals(object? obj) => obj is LineLineIntr<T> other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(Kind, Seg1T, Seg2T, Seg2T1);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator ==(LineLineIntr<T> left, LineLineIntr<T> right) => left.Equals(right);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator !=(LineLineIntr<T> left, LineLineIntr<T> right) => !left.Equals(right);
     }
 
     public static class LineLineIntersection

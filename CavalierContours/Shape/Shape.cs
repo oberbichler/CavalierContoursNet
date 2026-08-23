@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Numerics;
 using CavalierContours.Core;
 using CavalierContours.Polyline;
@@ -104,14 +105,19 @@ namespace CavalierContours.Shape
     public class Shape<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
-        public List<IndexedPolyline<T>> CcwPlines { get; }
-        public List<IndexedPolyline<T>> CwPlines { get; }
+        private readonly ReadOnlyCollection<IndexedPolyline<T>> _ccwPlines;
+        private readonly ReadOnlyCollection<IndexedPolyline<T>> _cwPlines;
+
+        public IReadOnlyList<IndexedPolyline<T>> CcwPlines => _ccwPlines;
+
+        public IReadOnlyList<IndexedPolyline<T>> CwPlines => _cwPlines;
+
         public StaticAABB2DIndex<T> PlinesIndex { get; }
 
         public Shape(List<IndexedPolyline<T>> ccwPlines, List<IndexedPolyline<T>> cwPlines, StaticAABB2DIndex<T> plinesIndex)
         {
-            CcwPlines = ccwPlines;
-            CwPlines = cwPlines;
+            _ccwPlines = new ReadOnlyCollection<IndexedPolyline<T>>(ccwPlines);
+            _cwPlines = new ReadOnlyCollection<IndexedPolyline<T>>(cwPlines);
             PlinesIndex = plinesIndex;
         }
 

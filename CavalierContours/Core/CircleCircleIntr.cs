@@ -12,7 +12,7 @@ namespace CavalierContours.Core
         Overlapping
     }
 
-    public readonly struct CircleCircleIntr<T>
+    public readonly struct CircleCircleIntr<T> : IEquatable<CircleCircleIntr<T>>
         where T : struct, IFloatingPointIeee754<T>
     {
         public readonly CircleCircleIntrKind Kind;
@@ -30,6 +30,24 @@ namespace CavalierContours.Core
         public static CircleCircleIntr<T> Overlapping => new(CircleCircleIntrKind.Overlapping, default, default);
         public static CircleCircleIntr<T> TangentIntersect(Vector2<T> point) => new(CircleCircleIntrKind.TangentIntersect, point, default);
         public static CircleCircleIntr<T> TwoIntersects(Vector2<T> point1, Vector2<T> point2) => new(CircleCircleIntrKind.TwoIntersects, point1, point2);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // Matches Rust's derived PartialEq: IEEE 754 comparison, so NaN != NaN and 0.0 == -0.0.
+        // Vector2<T>.operator == is itself component-wise IEEE 754, so this propagates.
+        public bool Equals(CircleCircleIntr<T> other)
+        {
+            return Kind == other.Kind && Point1 == other.Point1 && Point2 == other.Point2;
+        }
+
+        public override bool Equals(object? obj) => obj is CircleCircleIntr<T> other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(Kind, Point1, Point2);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator ==(CircleCircleIntr<T> left, CircleCircleIntr<T> right) => left.Equals(right);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator !=(CircleCircleIntr<T> left, CircleCircleIntr<T> right) => !left.Equals(right);
     }
 
     public static class CircleCircleIntersection

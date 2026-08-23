@@ -11,7 +11,7 @@ namespace CavalierContours.Core
         TwoIntersects
     }
 
-    public readonly struct LineCircleIntr<T>
+    public readonly struct LineCircleIntr<T> : IEquatable<LineCircleIntr<T>>
         where T : struct, IFloatingPointIeee754<T>
     {
         public readonly LineCircleIntrKind Kind;
@@ -28,6 +28,24 @@ namespace CavalierContours.Core
         public static LineCircleIntr<T> NoIntersect => new(LineCircleIntrKind.NoIntersect, default, default);
         public static LineCircleIntr<T> TangentIntersect(T t0) => new(LineCircleIntrKind.TangentIntersect, t0, default);
         public static LineCircleIntr<T> TwoIntersects(T t0, T t1) => new(LineCircleIntrKind.TwoIntersects, t0, t1);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // Matches Rust's derived PartialEq: IEEE 754 comparison, so NaN != NaN and 0.0 == -0.0.
+        // T.Equals would treat NaN as equal to itself.
+        public bool Equals(LineCircleIntr<T> other)
+        {
+            return Kind == other.Kind && T0 == other.T0 && T1 == other.T1;
+        }
+
+        public override bool Equals(object? obj) => obj is LineCircleIntr<T> other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(Kind, T0, T1);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator ==(LineCircleIntr<T> left, LineCircleIntr<T> right) => left.Equals(right);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator !=(LineCircleIntr<T> left, LineCircleIntr<T> right) => !left.Equals(right);
     }
 
     public static class LineCircleIntersection

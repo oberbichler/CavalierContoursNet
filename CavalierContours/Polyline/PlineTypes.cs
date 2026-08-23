@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Numerics;
 using CavalierContours.Core;
 using CavalierContours.Spatial;
@@ -81,13 +82,16 @@ namespace CavalierContours.Polyline
         where P : IPlineSource<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
+        private readonly ReadOnlyCollection<BooleanPlineSlice<T>> _subslices;
+
         public P Pline { get; set; }
-        public List<BooleanPlineSlice<T>> Subslices { get; set; }
+
+        public IReadOnlyList<BooleanPlineSlice<T>> Subslices => _subslices;
 
         public BooleanResultPline(P pline, List<BooleanPlineSlice<T>> subslices)
         {
             Pline = pline;
-            Subslices = subslices;
+            _subslices = new ReadOnlyCollection<BooleanPlineSlice<T>>(subslices);
         }
     }
 
@@ -105,14 +109,19 @@ namespace CavalierContours.Polyline
         where P : IPlineSource<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
-        public List<BooleanResultPline<P, T>> PosPlines { get; set; }
-        public List<BooleanResultPline<P, T>> NegPlines { get; set; }
-        public BooleanResultInfo ResultInfo { get; set; }
+        private readonly ReadOnlyCollection<BooleanResultPline<P, T>> _posPlines;
+        private readonly ReadOnlyCollection<BooleanResultPline<P, T>> _negPlines;
+
+        public IReadOnlyList<BooleanResultPline<P, T>> PosPlines => _posPlines;
+
+        public IReadOnlyList<BooleanResultPline<P, T>> NegPlines => _negPlines;
+
+        public BooleanResultInfo ResultInfo { get; }
 
         public BooleanResult(List<BooleanResultPline<P, T>> posPlines, List<BooleanResultPline<P, T>> negPlines, BooleanResultInfo resultInfo)
         {
-            PosPlines = posPlines;
-            NegPlines = negPlines;
+            _posPlines = new ReadOnlyCollection<BooleanResultPline<P, T>>(posPlines);
+            _negPlines = new ReadOnlyCollection<BooleanResultPline<P, T>>(negPlines);
             ResultInfo = resultInfo;
         }
 

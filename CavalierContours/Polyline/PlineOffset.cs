@@ -8,7 +8,7 @@ using CavalierContours.Spatial;
 
 namespace CavalierContours.Polyline
 {
-    public readonly struct RawPlineOffsetSeg<T>
+    internal readonly struct RawPlineOffsetSeg<T>
         where T : struct, IFloatingPointIeee754<T>
     {
         public readonly PlineVertex<T> V1;
@@ -126,7 +126,7 @@ namespace CavalierContours.Polyline
             }
         }
 
-        public static List<RawPlineOffsetSeg<T>> CreateUntrimmedRawOffsetSegs<T>(IPlineSource<T> polyline, T offset)
+        internal static List<RawPlineOffsetSeg<T>> CreateUntrimmedRawOffsetSegs<T>(IPlineSource<T> polyline, T offset)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
             RawPlineOffsetSeg<T> ProcessLineSeg(PlineVertex<T> v1, PlineVertex<T> v2)

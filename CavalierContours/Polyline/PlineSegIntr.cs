@@ -63,8 +63,8 @@ namespace CavalierContours.Polyline
                         return PlineSegIntr<T>.OneIntersect(BaseMath.PointFromParametric(v1.Pos(), v2.Pos(), intrResult.Seg1T));
                     case LineLineIntrKind.Overlapping:
                         return PlineSegIntr<T>.OverlappingLines(
-                            BaseMath.PointFromParametric(u1.Pos(), u2.Pos(), intrResult.Seg2T),
-                            BaseMath.PointFromParametric(u1.Pos(), u2.Pos(), intrResult.Seg2T1)
+                            BaseMath.PointFromParametric(u1.Pos(), u2.Pos(), intrResult.OverlapSeg2T0),
+                            BaseMath.PointFromParametric(u1.Pos(), u2.Pos(), intrResult.OverlapSeg2T1)
                         );
                 }
             }

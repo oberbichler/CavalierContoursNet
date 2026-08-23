@@ -39,9 +39,9 @@ namespace CavalierContours.Tests
                     Assert.Equal(right.Seg2T, left.Seg2T, 10);
                     break;
                 case LineLineIntrKind.Overlapping:
-                    // seg2_t0 is stored in Seg2T, seg2_t1 in Seg2T1
-                    Assert.Equal(right.Seg2T, left.Seg2T, 10);
-                    Assert.Equal(right.Seg2T1, left.Seg2T1, 10);
+                    // seg2_t0 is stored in Seg2T, seg2_t1 in Seg2T1; use the named aliases.
+                    Assert.Equal(right.OverlapSeg2T0, left.OverlapSeg2T0, 10);
+                    Assert.Equal(right.OverlapSeg2T1, left.OverlapSeg2T1, 10);
                     break;
                 default:
                     throw new InvalidOperationException($"unhandled kind: {right.Kind}");
