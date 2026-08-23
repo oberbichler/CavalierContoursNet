@@ -216,7 +216,10 @@ namespace CavalierContours.Polyline
 
             foreach (var (v1, v2) in pline.IterSegments())
             {
-                doubleTotalArea += v1.X * v2.Y - v1.Y * v2.X;
+                // Grouping matters: upstream accumulates as (acc + t1) - t2, the compound
+                // assignment would be acc + (t1 - t2) and rounds differently. Orientation()
+                // decides on the sign of this sum.
+                doubleTotalArea = doubleTotalArea + v1.X * v2.Y - v1.Y * v2.X;
                 if (!v1.BulgeIsZero())
                 {
                     T b = T.Abs(v1.Bulge);
@@ -456,7 +459,9 @@ namespace CavalierContours.Polyline
             {
                 if (v1.BulgeIsZero())
                 {
-                    result.Add(v1.X, v1.Y, T.Zero);
+                    // Upstream uses result.add_vertex(v1), which keeps a bulge that is fuzzy
+                    // zero but not exactly zero.
+                    result.AddVertex(v1);
                     continue;
                 }
 
@@ -472,7 +477,8 @@ namespace CavalierContours.Polyline
                 T angleDiff = T.Abs(BaseMath.DeltaAngle(startAngle, endAngle));
 
                 T two = T.CreateChecked(2);
-                T segSubAngle = two * T.Acos(T.Abs(T.One - absError / arcRadius));
+                // abs goes outside acos, matching upstream (one - abs_error/arc_radius).acos().abs()
+                T segSubAngle = two * T.Abs(T.Acos(T.One - absError / arcRadius));
                 T segCount = T.Ceiling(angleDiff / segSubAngle);
                 T segAngleOffset = v1.BulgeIsNeg() ? -angleDiff / segCount : angleDiff / segCount;
 
@@ -632,7 +638,6 @@ namespace CavalierContours.Polyline
                 {
                     var res = new Polyline<T>(1, self.IsClosed);
                     res.AddVertex(v2_val); // take bulge from last vertex
-                    res.SetUserDataValues(self.UserDataValues);
                     return res;
                 }
                 return null;
@@ -675,7 +680,6 @@ namespace CavalierContours.Polyline
                 {
                     pl.AddVertex(self.Get(idx));
                 }
-                pl.SetUserDataValues(self.UserDataValues);
                 return pl;
             }
 
@@ -689,7 +693,6 @@ namespace CavalierContours.Polyline
 
             if (i >= vc)
             {
-                result?.SetUserDataValues(self.UserDataValues);
                 return result;
             }
 
@@ -891,7 +894,6 @@ namespace CavalierContours.Polyline
                 }
             }
 
-            result?.SetUserDataValues(self.UserDataValues);
             return result;
         }
 
@@ -947,7 +949,6 @@ namespace CavalierContours.Polyline
                 }
             }
 
-            result.SetUserDataValues(self.UserDataValues);
             return result;
         }
 

@@ -193,7 +193,15 @@ namespace CavalierContours.Polyline
         {
             if (!source.IsClosed)
             {
-                return FromSlicePoints(source, startPoint, startIndex, source.Last()!.Value.Pos(), source.VertexCount - 1, posEqualEps);
+                // Upstream is `source.last()?.pos()`, so an empty source yields None rather
+                // than panicking.
+                var last = source.Last();
+                if (last is null)
+                {
+                    return null;
+                }
+
+                return FromSlicePoints(source, startPoint, startIndex, last.Value.Pos(), source.VertexCount - 1, posEqualEps);
             }
 
             int vc = source.VertexCount;
