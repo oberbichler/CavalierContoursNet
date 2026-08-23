@@ -21,7 +21,7 @@ namespace CavalierContours.Polyline
         }
     }
 
-    public class ProcessForBooleanResult<T>
+    internal class ProcessForBooleanResult<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
         public List<OverlappingSlice<T>> OverlappingSlices { get; set; } = new();
@@ -45,63 +45,95 @@ namespace CavalierContours.Polyline
         }
     }
 
-    public class PrunedSlices<T>
+    /// <summary>
+    /// Start indices for the ordered groups in <see cref="PrunedSlices{T}.SlicesRemaining"/>.
+    /// </summary>
+    internal readonly struct SliceStarts
+    {
+        /// <summary>Start of the non-overlapping slices from the second polyline.</summary>
+        public readonly int Pline2;
+
+        /// <summary>Start of the overlapping slices from the first polyline.</summary>
+        public readonly int Pline1Overlapping;
+
+        /// <summary>Start of the overlapping slices from the second polyline.</summary>
+        public readonly int Pline2Overlapping;
+
+        public SliceStarts(int pline2, int pline1Overlapping, int pline2Overlapping)
+        {
+            Pline2 = pline2;
+            Pline1Overlapping = pline1Overlapping;
+            Pline2Overlapping = pline2Overlapping;
+        }
+    }
+
+    internal class PrunedSlices<T>
         where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
     {
         public List<BooleanPlineSlice<T>> SlicesRemaining { get; set; } = new();
-        public int StartOfPline2Slices { get; set; }
-        public int StartOfPline1OverlappingSlices { get; set; }
-        public int StartOfPline2OverlappingSlices { get; set; }
+        public SliceStarts Starts { get; set; }
     }
 
-    public interface IStitchSelector
+    /// <summary>
+    /// Controls which non-overlapping polyline slices are kept during pruning.
+    /// Overlapping slice candidates are retained in every mode for stitch selection.
+    /// </summary>
+    internal enum PruneMode
+    {
+        /// <summary>Keeps each polyline's slices that lie outside the other polyline.</summary>
+        Union,
+
+        /// <summary>Keeps each polyline's slices that lie inside the other polyline.</summary>
+        Intersection,
+
+        /// <summary>
+        /// Keeps first-polyline slices outside the second and second-polyline slices inside the first.
+        /// </summary>
+        FirstMinusSecond,
+
+        /// <summary>
+        /// Keeps first-polyline slices inside the second and second-polyline slices outside the first.
+        /// </summary>
+        SecondMinusFirst
+    }
+
+    internal interface IStitchSelector
     {
         int? Select(int currentSliceIdx, ReadOnlySpan<int> availableIdx);
     }
 
-    public class OrAndStitchSelector : IStitchSelector
+    internal class OrAndStitchSelector : IStitchSelector
     {
-        private readonly int _startOfPline2Slices;
-        private readonly int _startOfPline1OverlappingSlices;
-        private readonly int _startOfPline2OverlappingSlices;
+        private readonly SliceStarts _starts;
 
-        public OrAndStitchSelector(
-            int startOfPline2Slices,
-            int startOfPline1OverlappingSlices,
-            int startOfPline2OverlappingSlices)
+        public OrAndStitchSelector(SliceStarts starts)
         {
-            _startOfPline2Slices = startOfPline2Slices;
-            _startOfPline1OverlappingSlices = startOfPline1OverlappingSlices;
-            _startOfPline2OverlappingSlices = startOfPline2OverlappingSlices;
+            _starts = starts;
         }
 
         public static OrAndStitchSelector FromPrunedSlices<T>(PrunedSlices<T> prunedSlices)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
-            return new OrAndStitchSelector(
-                prunedSlices.StartOfPline2Slices,
-                prunedSlices.StartOfPline1OverlappingSlices,
-                prunedSlices.StartOfPline2OverlappingSlices
-            );
+            return new OrAndStitchSelector(prunedSlices.Starts);
         }
 
         public int? Select(int currentSliceIdx, ReadOnlySpan<int> availableIdx)
         {
-            bool isPline1Idx = currentSliceIdx < _startOfPline2Slices
-                || (currentSliceIdx >= _startOfPline1OverlappingSlices && currentSliceIdx < _startOfPline2OverlappingSlices);
+            bool isPline1Idx = currentSliceIdx < _starts.Pline2
+                || (currentSliceIdx >= _starts.Pline1Overlapping && currentSliceIdx < _starts.Pline2Overlapping);
 
             if (isPline1Idx)
             {
                 foreach (int i in availableIdx)
                 {
-                    if (i >= _startOfPline2Slices && i < _startOfPline1OverlappingSlices)
+                    if (i >= _starts.Pline2 && i < _starts.Pline1Overlapping)
                     {
                         return i;
                     }
                 }
                 foreach (int i in availableIdx)
                 {
-                    if (i < _startOfPline2Slices)
+                    if (i < _starts.Pline2)
                     {
                         return i;
                     }
@@ -111,14 +143,14 @@ namespace CavalierContours.Polyline
             {
                 foreach (int i in availableIdx)
                 {
-                    if (i < _startOfPline2Slices)
+                    if (i < _starts.Pline2)
                     {
                         return i;
                     }
                 }
                 foreach (int i in availableIdx)
                 {
-                    if (i >= _startOfPline2Slices && i < _startOfPline1OverlappingSlices)
+                    if (i >= _starts.Pline2 && i < _starts.Pline1Overlapping)
                     {
                         return i;
                     }
@@ -129,37 +161,26 @@ namespace CavalierContours.Polyline
         }
     }
 
-    public class NotXorStitchSelector : IStitchSelector
+    internal class NotXorStitchSelector : IStitchSelector
     {
-        private readonly int _startOfPline2Slices;
-        private readonly int _startOfPline1OverlappingSlices;
-        private readonly int _startOfPline2OverlappingSlices;
+        private readonly SliceStarts _starts;
 
-        public NotXorStitchSelector(
-            int startOfPline2Slices,
-            int startOfPline1OverlappingSlices,
-            int startOfPline2OverlappingSlices)
+        public NotXorStitchSelector(SliceStarts starts)
         {
-            _startOfPline2Slices = startOfPline2Slices;
-            _startOfPline1OverlappingSlices = startOfPline1OverlappingSlices;
-            _startOfPline2OverlappingSlices = startOfPline2OverlappingSlices;
+            _starts = starts;
         }
 
         public static NotXorStitchSelector FromPrunedSlices<T>(PrunedSlices<T> prunedSlices)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
-            return new NotXorStitchSelector(
-                prunedSlices.StartOfPline2Slices,
-                prunedSlices.StartOfPline1OverlappingSlices,
-                prunedSlices.StartOfPline2OverlappingSlices
-            );
+            return new NotXorStitchSelector(prunedSlices.Starts);
         }
 
         private int? IdxForPline1Slice(ReadOnlySpan<int> availableIdx)
         {
             foreach (int i in availableIdx)
             {
-                if (i < _startOfPline2Slices) return i;
+                if (i < _starts.Pline2) return i;
             }
             return null;
         }
@@ -168,23 +189,23 @@ namespace CavalierContours.Polyline
         {
             foreach (int i in availableIdx)
             {
-                if (i >= _startOfPline2Slices && i < _startOfPline1OverlappingSlices) return i;
+                if (i >= _starts.Pline2 && i < _starts.Pline1Overlapping) return i;
             }
             return null;
         }
 
         public int? Select(int currentSliceIdx, ReadOnlySpan<int> availableIdx)
         {
-            if (currentSliceIdx >= _startOfPline1OverlappingSlices)
+            if (currentSliceIdx >= _starts.Pline1Overlapping)
             {
-                if (currentSliceIdx < _startOfPline2OverlappingSlices)
+                if (currentSliceIdx < _starts.Pline2Overlapping)
                 {
                     return IdxForPline2Slice(availableIdx) ?? IdxForPline1Slice(availableIdx);
                 }
                 return IdxForPline1Slice(availableIdx) ?? IdxForPline2Slice(availableIdx);
             }
 
-            if (currentSliceIdx < _startOfPline2Slices)
+            if (currentSliceIdx < _starts.Pline2)
             {
                 return IdxForPline2Slice(availableIdx) ?? (availableIdx.Length > 0 ? availableIdx[0] : null);
             }
@@ -193,6 +214,10 @@ namespace CavalierContours.Polyline
         }
     }
 
+    /// <summary>
+    /// Boolean operations between two closed polylines, and the intersection helpers they are built
+    /// on.
+    /// </summary>
     public static class PlineBoolean
     {
         private class FindIntersectsVisitor<T> : ITwoPlinesIntersectVisitor<T>
@@ -294,6 +319,31 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Visits every segment pair intersection between two polylines, as needed by the boolean
+        /// algorithm.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">First polyline; its segments are found via the spatial index.</param>
+        /// <param name="pline2">Second polyline; its segments drive the outer loop.</param>
+        /// <param name="visitor">
+        /// Receives the raw <see cref="PlineSegIntr{T}"/> for each tested segment pair, including
+        /// results of kind <see cref="PlineSegIntrKind.NoIntersect"/>. Returning
+        /// <see langword="false"/> stops the query for the current
+        /// <paramref name="pline2"/> segment.
+        /// </param>
+        /// <param name="options">
+        /// Epsilon and, optionally, a prebuilt spatial index for <paramref name="pline1"/>. When
+        /// <see cref="FindIntersectsOptions{T}.Pline1AabbIndex"/> is <see langword="null"/> an index
+        /// is built on the fly.
+        /// </param>
+        /// <remarks>
+        /// Nothing is visited when either polyline has fewer than two vertexes. Unlike
+        /// <see cref="PlineIntersects.VisitIntersects{T}(IPlineSource{T}, IPlineSource{T}, ITwoPlinesIntersectVisitor{T}, FindIntersectsOptions{T})"/>,
+        /// a visitor returning <see langword="false"/> only ends the inner spatial query here; the
+        /// outer loop over the segments of <paramref name="pline2"/> continues.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="visitor"/> or <paramref name="options"/> is null.</exception>
         public static void VisitIntersects<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
@@ -301,6 +351,11 @@ namespace CavalierContours.Polyline
             FindIntersectsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(visitor);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (pline1.VertexCount < 2 || pline2.VertexCount < 2)
             {
                 return;
@@ -342,12 +397,41 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Finds all intersects between two polylines, separated into point intersects and
+        /// overlapping intersects, as used by the boolean algorithm.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">First polyline.</param>
+        /// <param name="pline2">Second polyline.</param>
+        /// <param name="options">
+        /// Epsilon and, optionally, a prebuilt spatial index for <paramref name="pline1"/>.
+        /// </param>
+        /// <returns>
+        /// The intersects found. An empty collection is returned when either polyline has fewer
+        /// than two vertexes.
+        /// </returns>
+        /// <remarks>
+        /// For an overlapping intersect, <c>Point1</c> is the end closest to the start of the
+        /// second polyline's segment and <c>Point2</c> the end furthest from it. When one segment
+        /// pair yields two point intersects they are ordered by distance from the start of the
+        /// second segment. An intersect exactly at the start of a segment is recorded with that
+        /// segment's start vertex index, except on an open polyline where an intersect at the very
+        /// end uses the second to last vertex index. Intersects landing on a shared vertex are
+        /// deduplicated afterwards so that a point common to two adjacent segments is reported
+        /// once.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="options"/> is null.</exception>
         public static PlineIntersectsCollection<T> FindIntersects<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
             FindIntersectsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(options);
+
             var result = PlineIntersectsCollection<T>.NewEmpty();
             if (pline1.VertexCount < 2 || pline2.VertexCount < 2)
             {
@@ -394,6 +478,33 @@ namespace CavalierContours.Polyline
             return result;
         }
 
+        /// <summary>
+        /// Sorts overlapping intersects along the direction of the second polyline and joins
+        /// adjacent ones into contiguous slices, for use by the boolean algorithm.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="intersects">
+        /// The overlapping intersects to process. The list is sorted in place, so the caller's
+        /// ordering is destroyed. Each entry must follow the convention that <c>Point1</c> is
+        /// closest to the start of the segment on <paramref name="pline2"/> and <c>Point2</c>
+        /// furthest from it.
+        /// </param>
+        /// <param name="pline1">The first polyline of the intersect pair.</param>
+        /// <param name="pline2">
+        /// The second polyline; its segment indexes and direction define the sort order.
+        /// </param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy position comparisons.</param>
+        /// <returns>
+        /// The joined overlapping slices, or an empty list when <paramref name="intersects"/> is
+        /// empty.
+        /// </returns>
+        /// <remarks>
+        /// Consecutive intersects whose ends meet within <paramref name="posEqualEps"/> are merged
+        /// into one slice. If the last slice ends where the first one begins, the two are merged
+        /// into a single wrapping slice whose start index and updated start vertex are taken from
+        /// the last slice.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="intersects"/> or <paramref name="pline1"/> or <paramref name="pline2"/> is null.</exception>
         public static List<OverlappingSlice<T>> SortAndJoinOverlappingIntersects<T>(
             List<PlineOverlappingIntersect<T>> intersects,
             IPlineSource<T> pline1,
@@ -401,6 +512,10 @@ namespace CavalierContours.Polyline
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(intersects);
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+
             var result = new List<OverlappingSlice<T>>();
             if (intersects.Count == 0)
             {
@@ -490,7 +605,7 @@ namespace CavalierContours.Polyline
             return result;
         }
 
-        public static ProcessForBooleanResult<T> ProcessForBoolean<T>(
+        internal static ProcessForBooleanResult<T> ProcessForBoolean<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
             StaticAABB2DIndex<T> pline1AabbIndex,
@@ -545,7 +660,7 @@ namespace CavalierContours.Polyline
             }
         }
 
-        public static void SliceAtIntersects<T>(
+        internal static void SliceAtIntersects<T>(
             IPlineSource<T> pline,
             ProcessForBooleanResult<T> booleanInfo,
             bool useSecondIndex,
@@ -751,23 +866,25 @@ namespace CavalierContours.Polyline
             }
         }
 
-        public static PrunedSlices<T> PruneSlices<T>(
+        /// <summary>
+        /// Prunes slices from polylines based on the specified pruning mode.
+        ///
+        /// This function slices both polylines at their intersection points and filters the
+        /// resulting slices based on the pruning mode's requirements.
+        ///
+        /// The resulting slices are organized into categories:
+        /// 1. Non-overlapping slices from pline1
+        /// 2. Non-overlapping slices from pline2
+        /// 3. Overlapping slices from pline1
+        /// 4. Overlapping slices from pline2
+        ///
+        /// These categorized slices can then be stitched together to form the final boolean result.
+        /// </summary>
+        internal static PrunedSlices<T> PruneSlices<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
             ProcessForBooleanResult<T> booleanInfo,
-            BooleanOp operation,
-            T posEqualEps)
-            where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
-        {
-            return PruneSlicesImpl(pline1, pline2, booleanInfo, operation, false, posEqualEps);
-        }
-
-        private static PrunedSlices<T> PruneSlicesImpl<T>(
-            IPlineSource<T> pline1,
-            IPlineSource<T> pline2,
-            ProcessForBooleanResult<T> booleanInfo,
-            BooleanOp operation,
-            bool xorSecondPass,
+            PruneMode mode,
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
@@ -776,46 +893,36 @@ namespace CavalierContours.Polyline
             Func<Vector2<T>, bool> pointInPline1 = pt => pline1.WindingNumber(pt) != 0;
             Func<Vector2<T>, bool> pointInPline2 = pt => pline2.WindingNumber(pt) != 0;
 
-            if (xorSecondPass)
+            // slice pline1
+            switch (mode)
             {
-                SliceAtIntersects(pline1, booleanInfo, false, pointInPline2, slicesRemaining, posEqualEps);
-            }
-            else
-            {
-                switch (operation)
-                {
-                    case BooleanOp.Or:
-                        SliceAtIntersects(pline1, booleanInfo, false, pt => !pointInPline2(pt), slicesRemaining, posEqualEps);
-                        break;
-                    case BooleanOp.And:
-                        SliceAtIntersects(pline1, booleanInfo, false, pointInPline2, slicesRemaining, posEqualEps);
-                        break;
-                    case BooleanOp.Not:
-                    case BooleanOp.Xor:
-                        SliceAtIntersects(pline1, booleanInfo, false, pt => !pointInPline2(pt), slicesRemaining, posEqualEps);
-                        break;
-                }
+                case PruneMode.Union:
+                case PruneMode.FirstMinusSecond:
+                    SliceAtIntersects(pline1, booleanInfo, false, pt => !pointInPline2(pt), slicesRemaining, posEqualEps);
+                    break;
+                case PruneMode.Intersection:
+                case PruneMode.SecondMinusFirst:
+                    SliceAtIntersects(pline1, booleanInfo, false, pointInPline2, slicesRemaining, posEqualEps);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(mode));
             }
 
             int startOfPline2Slices = slicesRemaining.Count;
 
-            if (xorSecondPass)
+            // slice pline2
+            switch (mode)
             {
-                SliceAtIntersects(pline2, booleanInfo, true, pt => !pointInPline1(pt), slicesRemaining, posEqualEps);
-            }
-            else
-            {
-                switch (operation)
-                {
-                    case BooleanOp.Or:
-                    case BooleanOp.Xor:
-                        SliceAtIntersects(pline2, booleanInfo, true, pt => !pointInPline1(pt), slicesRemaining, posEqualEps);
-                        break;
-                    case BooleanOp.And:
-                    case BooleanOp.Not:
-                        SliceAtIntersects(pline2, booleanInfo, true, pointInPline1, slicesRemaining, posEqualEps);
-                        break;
-                }
+                case PruneMode.Union:
+                case PruneMode.SecondMinusFirst:
+                    SliceAtIntersects(pline2, booleanInfo, true, pt => !pointInPline1(pt), slicesRemaining, posEqualEps);
+                    break;
+                case PruneMode.Intersection:
+                case PruneMode.FirstMinusSecond:
+                    SliceAtIntersects(pline2, booleanInfo, true, pointInPline1, slicesRemaining, posEqualEps);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(mode));
             }
 
             int startOfPline1OverlappingSlices = slicesRemaining.Count;
@@ -832,11 +939,11 @@ namespace CavalierContours.Polyline
                 slicesRemaining.Add(BooleanPlineSlice<T>.FromOverlapping(pline2, s, false));
             }
 
-            bool setOpposingDirection = operation switch
+            bool setOpposingDirection = mode switch
             {
-                BooleanOp.Or or BooleanOp.And => false,
-                BooleanOp.Not or BooleanOp.Xor => true,
-                _ => false
+                PruneMode.Union or PruneMode.Intersection => false,
+                PruneMode.FirstMinusSecond or PruneMode.SecondMinusFirst => true,
+                _ => throw new ArgumentOutOfRangeException(nameof(mode))
             };
 
             if (setOpposingDirection != booleanInfo.OpposingDirections())
@@ -859,9 +966,10 @@ namespace CavalierContours.Polyline
             return new PrunedSlices<T>
             {
                 SlicesRemaining = slicesRemaining,
-                StartOfPline2Slices = startOfPline2Slices,
-                StartOfPline1OverlappingSlices = startOfPline1OverlappingSlices,
-                StartOfPline2OverlappingSlices = startOfPline2OverlappingSlices
+                Starts = new SliceStarts(
+                    startOfPline2Slices,
+                    startOfPline1OverlappingSlices,
+                    startOfPline2OverlappingSlices)
             };
         }
 
@@ -881,7 +989,7 @@ namespace CavalierContours.Polyline
             return builder.Build();
         }
 
-        public static List<BooleanResultPline<O, T>> StitchSlicesIntoClosedPolylines<O, T>(
+        internal static List<BooleanResultPline<O, T>> StitchSlicesIntoClosedPolylines<O, T>(
             List<BooleanPlineSlice<T>> slices,
             IPlineSource<T> sourcePline1,
             IPlineSource<T> sourcePline2,
@@ -1033,6 +1141,66 @@ namespace CavalierContours.Polyline
             return result;
         }
 
+        /// <summary>
+        /// Performs a boolean set operation between two closed polylines.
+        /// </summary>
+        /// <typeparam name="O">Mutable polyline type to produce.</typeparam>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">
+        /// First operand, the polyline referred to as <c>pline1</c> in the result. Must be closed
+        /// and have at least two vertexes.
+        /// </param>
+        /// <param name="pline2">
+        /// Second operand, the polyline referred to as <c>pline2</c> in the result. Must be closed
+        /// and have at least two vertexes.
+        /// </param>
+        /// <param name="operation">
+        /// The set operation to perform: <see cref="BooleanOp.Or"/> for the union,
+        /// <see cref="BooleanOp.And"/> for the intersection, <see cref="BooleanOp.Not"/> to
+        /// subtract <paramref name="pline2"/> from <paramref name="pline1"/>, and
+        /// <see cref="BooleanOp.Xor"/> for the symmetric difference.
+        /// </param>
+        /// <param name="options">
+        /// Algorithm parameters:
+        /// <see cref="PlineBooleanOptions{T}.Pline1AabbIndex"/> supplies a prebuilt spatial index
+        /// for <paramref name="pline1"/> and is computed internally when <see langword="null"/>;
+        /// <see cref="PlineBooleanOptions{T}.PosEqualEps"/> is the epsilon for position equality;
+        /// <see cref="PlineBooleanOptions{T}.CollapsedAreaEps"/>, when not <see langword="null"/>,
+        /// drops result polylines whose absolute area is below it, which avoids sliver output from
+        /// floating point thresholding.
+        /// </param>
+        /// <returns>
+        /// A result holding the positive polylines (remaining filled space), the negative polylines
+        /// (subtracted space, that is holes), the slices each was stitched from, and a
+        /// <see cref="BooleanResultInfo"/> describing the topological case that was hit:
+        /// <see cref="BooleanResultInfo.InvalidInput"/>,
+        /// <see cref="BooleanResultInfo.Pline1InsidePline2"/>,
+        /// <see cref="BooleanResultInfo.Pline2InsidePline1"/>,
+        /// <see cref="BooleanResultInfo.Disjoint"/>,
+        /// <see cref="BooleanResultInfo.Overlapping"/> or
+        /// <see cref="BooleanResultInfo.Intersected"/>. Every result polyline carries the user data
+        /// values of both inputs concatenated.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// Degenerate input does not throw: if either polyline is open or has fewer than two
+        /// vertexes, an empty result with
+        /// <see cref="BooleanResultInfo.InvalidInput"/> is returned. Self intersecting inputs are
+        /// not rejected but may produce unexpected results.
+        /// </para>
+        /// <para>
+        /// The algorithm first finds all intersects between the two polylines, including
+        /// overlapping stretches, and records their orientations. When there are no intersects at
+        /// all, or the two paths coincide exactly, the answer follows directly from a containment
+        /// test and whole input polylines are returned. Otherwise both polylines are cut into
+        /// slices at every intersect point, and each slice is kept or discarded according to
+        /// whether it lies inside or outside the other polyline, which is what distinguishes the
+        /// four operations. The surviving slices are finally stitched end to end into closed
+        /// polylines and classified as positive or negative by comparing their orientation against
+        /// the input orientation.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="options"/> is null.</exception>
         public static BooleanResult<O, T> PolylineBoolean<O, T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
@@ -1041,6 +1209,10 @@ namespace CavalierContours.Polyline
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (pline1.VertexCount < 2
                 || !pline1.IsClosed
                 || pline2.VertexCount < 2
@@ -1100,7 +1272,7 @@ namespace CavalierContours.Polyline
                         }
                         else
                         {
-                            var prunedSlices = PruneSlices(pline1, pline2, booleanInfo, BooleanOp.Or, posEqualEps);
+                            var prunedSlices = PruneSlices(pline1, pline2, booleanInfo, PruneMode.Union, posEqualEps);
 
                             var stitchSelector = OrAndStitchSelector.FromPrunedSlices(prunedSlices);
 
@@ -1168,7 +1340,7 @@ namespace CavalierContours.Polyline
                         }
                         else
                         {
-                            var prunedSlices = PruneSlices(pline1, pline2, booleanInfo, BooleanOp.And, posEqualEps);
+                            var prunedSlices = PruneSlices(pline1, pline2, booleanInfo, PruneMode.Intersection, posEqualEps);
 
                             var stitchSelector = OrAndStitchSelector.FromPrunedSlices(prunedSlices);
                             var posPlines = StitchSlicesIntoClosedPolylines<O, T>(
@@ -1215,7 +1387,7 @@ namespace CavalierContours.Polyline
                         }
                         else
                         {
-                            var prunedSlices = PruneSlices(pline1, pline2, booleanInfo, BooleanOp.Not, posEqualEps);
+                            var prunedSlices = PruneSlices(pline1, pline2, booleanInfo, PruneMode.FirstMinusSecond, posEqualEps);
 
                             var stitchSelector = NotXorStitchSelector.FromPrunedSlices(prunedSlices);
 
@@ -1267,7 +1439,7 @@ namespace CavalierContours.Polyline
                         }
                         else
                         {
-                            var prunedSlices1 = PruneSlices(pline1, pline2, booleanInfo, BooleanOp.Not, posEqualEps);
+                            var prunedSlices1 = PruneSlices(pline1, pline2, booleanInfo, PruneMode.FirstMinusSecond, posEqualEps);
 
                             var stitchSelector1 = NotXorStitchSelector.FromPrunedSlices(prunedSlices1);
                             var remaining1 = StitchSlicesIntoClosedPolylines<O, T>(
@@ -1279,12 +1451,11 @@ namespace CavalierContours.Polyline
                                 collapsedAreaEps
                             );
 
-                            var prunedSlices2 = PruneSlicesImpl(
+                            var prunedSlices2 = PruneSlices(
                                 pline1,
                                 pline2,
                                 booleanInfo,
-                                BooleanOp.Xor,
-                                true,
+                                PruneMode.SecondMinusFirst,
                                 posEqualEps
                             );
 

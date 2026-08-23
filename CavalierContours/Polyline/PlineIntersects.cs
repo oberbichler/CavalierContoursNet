@@ -8,14 +8,42 @@ using CavalierContours.Spatial;
 
 namespace CavalierContours.Polyline
 {
+    /// <summary>
+    /// Finds self intersects of a single polyline and intersects between two polylines.
+    /// </summary>
     public static class PlineIntersects
     {
+        /// <summary>
+        /// Visits all local self intersects of a polyline, that is intersects between two segments
+        /// that share a vertex.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="polyline">The polyline to inspect.</param>
+        /// <param name="visitor">
+        /// Receives each intersect found. Returning <see langword="false"/> from one of its methods
+        /// stops the traversal immediately.
+        /// </param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy position comparisons.</param>
+        /// <returns>
+        /// <see langword="true"/> if every local self intersect was visited,
+        /// <see langword="false"/> if the visitor stopped the traversal early.
+        /// </returns>
+        /// <remarks>
+        /// Polylines with fewer than two vertexes have nothing to inspect. A closed polyline with
+        /// exactly two vertexes is a special case: it reports one overlapping intersect when the
+        /// two bulges cancel out, since the two segments then trace the same arc in opposite
+        /// directions. An intersect that falls exactly on the shared vertex is not reported.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="visitor"/> is null.</exception>
         public static bool VisitLocalSelfIntersects<T>(
             IPlineSource<T> polyline,
             IPlineIntersectVisitor<T> visitor,
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(visitor);
+
             int vc = polyline.VertexCount;
             if (vc < 2)
             {
@@ -238,6 +266,34 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Visits all global self intersects of a polyline, that is intersects between two segments
+        /// that do not share a vertex.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="polyline">The polyline to inspect.</param>
+        /// <param name="aabbIndex">
+        /// Spatial index over the polyline's segment bounding boxes, used to restrict the pairwise
+        /// tests. It must correspond to <paramref name="polyline"/>.
+        /// </param>
+        /// <param name="visitor">
+        /// Receives each intersect found. Returning <see langword="false"/> from one of its methods
+        /// stops the traversal immediately.
+        /// </param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy position comparisons.</param>
+        /// <returns>
+        /// <see langword="true"/> if every global self intersect was visited,
+        /// <see langword="false"/> if the visitor stopped the traversal early.
+        /// </returns>
+        /// <remarks>
+        /// Polylines with fewer than three vertexes cannot have global self intersects. When one
+        /// segment carries two intersects they are reported in order of distance from the start of
+        /// the second segment. An intersect exactly at the start of a segment is recorded with that
+        /// segment's start vertex index, except on an open polyline where an intersect at the very
+        /// end uses the second to last vertex index so that the index always denotes a segment
+        /// start.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="aabbIndex"/> or <paramref name="visitor"/> is null.</exception>
         public static bool VisitGlobalSelfIntersects<T>(
             IPlineSource<T> polyline,
             StaticAABB2DIndex<T> aabbIndex,
@@ -245,6 +301,10 @@ namespace CavalierContours.Polyline
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(aabbIndex);
+            ArgumentNullException.ThrowIfNull(visitor);
+
             int vc = polyline.VertexCount;
             if (vc < 3)
             {
@@ -325,6 +385,26 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Finds all self intersects of a polyline, local and global, and returns them as basic
+        /// point intersects.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="polyline">The polyline to inspect.</param>
+        /// <param name="aabbIndex">
+        /// Spatial index over the polyline's segment bounding boxes, used for the global pass.
+        /// </param>
+        /// <param name="includeOverlapping">
+        /// When <see langword="true"/>, each overlapping intersect contributes two basic
+        /// intersects, one at each end of the overlap. When <see langword="false"/>, overlapping
+        /// intersects are dropped.
+        /// </param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy position comparisons.</param>
+        /// <returns>
+        /// All self intersects found, local ones first and global ones after. No deduplication is
+        /// performed.
+        /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="aabbIndex"/> is null.</exception>
         public static List<PlineBasicIntersect<T>> AllSelfIntersectsAsBasic<T>(
             IPlineSource<T> polyline,
             StaticAABB2DIndex<T> aabbIndex,
@@ -332,6 +412,9 @@ namespace CavalierContours.Polyline
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(aabbIndex);
+
             var visitor = new BasicSelfIntersectsVisitor<T>(includeOverlapping);
             VisitLocalSelfIntersects(polyline, visitor, posEqualEps);
             VisitGlobalSelfIntersects(polyline, aabbIndex, visitor, posEqualEps);
@@ -388,6 +471,32 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Visits every segment pair intersection between two polylines.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">First polyline; its segments are found via the spatial index.</param>
+        /// <param name="pline2">Second polyline; its segments drive the outer loop.</param>
+        /// <param name="visitor">
+        /// Receives the raw <see cref="PlineSegIntr{T}"/> for each tested segment pair, including
+        /// results of kind <see cref="PlineSegIntrKind.NoIntersect"/>. Returning
+        /// <see langword="false"/> stops the whole traversal, both the query for the current
+        /// <paramref name="pline2"/> segment and the loop over the remaining ones.
+        /// </param>
+        /// <param name="options">
+        /// Epsilon and, optionally, a prebuilt spatial index for <paramref name="pline1"/>. When
+        /// <see cref="FindIntersectsOptions{T}.Pline1AabbIndex"/> is <see langword="null"/> an index
+        /// is built on the fly.
+        /// </param>
+        /// <remarks>
+        /// Nothing is visited when either polyline has fewer than two vertexes. The order in which
+        /// pairs are visited follows the segments of <paramref name="pline2"/> and, within each,
+        /// the spatial index order of <paramref name="pline1"/>; the intersect points therefore
+        /// follow the direction of the <paramref name="pline2"/> segment. Note that
+        /// <see cref="PlineBoolean.VisitIntersects{T}(IPlineSource{T}, IPlineSource{T}, ITwoPlinesIntersectVisitor{T}, FindIntersectsOptions{T})"/>
+        /// only ends the inner query on <see langword="false"/> and keeps iterating the outer loop.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="visitor"/> or <paramref name="options"/> is null.</exception>
         public static void VisitIntersects<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
@@ -395,6 +504,11 @@ namespace CavalierContours.Polyline
             FindIntersectsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(visitor);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (pline1.VertexCount < 2 || pline2.VertexCount < 2)
             {
                 return;
@@ -524,12 +638,41 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Finds all intersects between two polylines, separated into point intersects and
+        /// overlapping intersects.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">First polyline.</param>
+        /// <param name="pline2">Second polyline.</param>
+        /// <param name="options">
+        /// Epsilon and, optionally, a prebuilt spatial index for <paramref name="pline1"/>.
+        /// </param>
+        /// <returns>
+        /// The intersects found. An empty collection is returned when either polyline has fewer
+        /// than two vertexes.
+        /// </returns>
+        /// <remarks>
+        /// For an overlapping intersect, <c>Point1</c> is the end closest to the start of the
+        /// second polyline's segment and <c>Point2</c> the end furthest from it. When one segment
+        /// pair yields two point intersects they are ordered by distance from the start of the
+        /// second segment. An intersect exactly at the start of a segment is recorded with that
+        /// segment's start vertex index, except on an open polyline where an intersect at the very
+        /// end uses the second to last vertex index. Intersects landing on a shared vertex are
+        /// deduplicated afterwards so that a point common to two adjacent segments is reported
+        /// once.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="options"/> is null.</exception>
         public static PlineIntersectsCollection<T> FindIntersects<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
             FindIntersectsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (pline1.VertexCount < 2 || pline2.VertexCount < 2)
             {
                 return PlineIntersectsCollection<T>.NewEmpty();
@@ -597,17 +740,62 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Tests whether two polylines intersect at all, stopping at the first hit.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="pline1">First polyline.</param>
+        /// <param name="pline2">Second polyline.</param>
+        /// <param name="options">
+        /// Epsilon and, optionally, a prebuilt spatial index for <paramref name="pline1"/>.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> if any intersect was found. Overlapping segments count as an
+        /// intersect. <see langword="false"/> otherwise, including when either polyline has fewer
+        /// than two vertexes.
+        /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="pline1"/> or <paramref name="pline2"/> or <paramref name="options"/> is null.</exception>
         public static bool ScanForIntersect<T>(
             IPlineSource<T> pline1,
             IPlineSource<T> pline2,
             FindIntersectsOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+            ArgumentNullException.ThrowIfNull(options);
+
             var visitor = new ScanForIntersectVisitor<T>();
             VisitIntersects(pline1, pline2, visitor, options);
             return visitor.FoundIntersect;
         }
 
+        /// <summary>
+        /// Sorts overlapping intersects along the direction of the second polyline and joins
+        /// adjacent ones into contiguous slices.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="intersects">
+        /// The overlapping intersects to process. The list is sorted in place, so the caller's
+        /// ordering is destroyed. Each entry must follow the convention that <c>Point1</c> is
+        /// closest to the start of the segment on <paramref name="pline2"/> and <c>Point2</c>
+        /// furthest from it.
+        /// </param>
+        /// <param name="pline1">The first polyline of the intersect pair.</param>
+        /// <param name="pline2">
+        /// The second polyline; its segment indexes and direction define the sort order.
+        /// </param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy position comparisons.</param>
+        /// <returns>
+        /// The joined overlapping slices, or an empty list when <paramref name="intersects"/> is
+        /// empty.
+        /// </returns>
+        /// <remarks>
+        /// Consecutive intersects whose ends meet within <paramref name="posEqualEps"/> are merged
+        /// into one slice. If the last slice ends where the first one begins, the two are merged as
+        /// well, so that a slice wrapping around the polyline start is returned as a single entry.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="intersects"/> or <paramref name="pline1"/> or <paramref name="pline2"/> is null.</exception>
         public static List<OverlappingSlice<T>> SortAndJoinOverlappingIntersects<T>(
             List<PlineOverlappingIntersect<T>> intersects,
             IPlineSource<T> pline1,
@@ -615,6 +803,10 @@ namespace CavalierContours.Polyline
             T posEqualEps)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(intersects);
+            ArgumentNullException.ThrowIfNull(pline1);
+            ArgumentNullException.ThrowIfNull(pline2);
+
             var result = new List<OverlappingSlice<T>>();
 
             if (intersects.Count == 0)

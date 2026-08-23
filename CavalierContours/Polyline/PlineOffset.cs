@@ -8,7 +8,7 @@ using CavalierContours.Spatial;
 
 namespace CavalierContours.Polyline
 {
-    public readonly struct RawPlineOffsetSeg<T>
+    internal readonly struct RawPlineOffsetSeg<T>
         where T : struct, IFloatingPointIeee754<T>
     {
         public readonly PlineVertex<T> V1;
@@ -25,6 +25,9 @@ namespace CavalierContours.Polyline
         }
     }
 
+    /// <summary>
+    /// Parallel offset of a single polyline, and the individual steps the offset is built from.
+    /// </summary>
     public static class PlineOffset
     {
         private readonly struct JoinParams<T>
@@ -126,7 +129,7 @@ namespace CavalierContours.Polyline
             }
         }
 
-        public static List<RawPlineOffsetSeg<T>> CreateUntrimmedRawOffsetSegs<T>(IPlineSource<T> polyline, T offset)
+        internal static List<RawPlineOffsetSeg<T>> CreateUntrimmedRawOffsetSegs<T>(IPlineSource<T> polyline, T offset)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
             RawPlineOffsetSeg<T> ProcessLineSeg(PlineVertex<T> v1, PlineVertex<T> v2)
@@ -600,10 +603,36 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Creates the raw offset polyline: every segment moved sideways by
+        /// <paramref name="offset"/> and the neighbouring pieces joined, but with no self
+        /// intersections removed yet.
+        /// </summary>
+        /// <typeparam name="O">Mutable polyline type to produce.</typeparam>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="polyline">The polyline to offset.</param>
+        /// <param name="offset">
+        /// Offset distance; positive offsets to the left of the segment tangent vectors, negative
+        /// to the right.
+        /// </param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy position comparisons.</param>
+        /// <returns>
+        /// The raw offset polyline. It is empty when the input has fewer than two vertexes or when
+        /// no offset segment survives.
+        /// </returns>
+        /// <remarks>
+        /// Adjacent offset segments are connected by a straight join where they still meet, and by
+        /// a connecting arc where the offset opened a gap. Arcs whose radius the offset drove to
+        /// zero or below collapse into points. The result is generally self intersecting; the
+        /// invalid parts are removed later by the slicing step.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> is null.</exception>
         public static O CreateRawOffsetPolyline<O, T>(IPlineSource<T> polyline, T offset, T posEqualEps)
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+
             int vc = polyline.VertexCount;
             if (vc < 2)
             {
@@ -747,6 +776,35 @@ namespace CavalierContours.Polyline
             return result;
         }
 
+        /// <summary>
+        /// Tests whether a point is far enough away from a polyline to be part of a valid offset
+        /// result at the given distance.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="polyline">The original polyline the point is measured against.</param>
+        /// <param name="offset">
+        /// The offset distance. Only its magnitude matters here.
+        /// </param>
+        /// <param name="aabbIndex">
+        /// Spatial index over the segment bounding boxes of <paramref name="polyline"/>, used to
+        /// limit the distance checks to nearby segments.
+        /// </param>
+        /// <param name="point">The point to test.</param>
+        /// <param name="queryStack">
+        /// Scratch buffer for the spatial index traversal, cleared before use; reused across calls
+        /// to avoid allocations.
+        /// </param>
+        /// <param name="posEqualEps">Epsilon used for the fuzzy position comparisons.</param>
+        /// <param name="offsetTol">
+        /// Tolerance subtracted from the offset magnitude, so that points sitting exactly at the
+        /// offset distance are not rejected by rounding.
+        /// </param>
+        /// <returns>
+        /// <see langword="true"/> if no segment of <paramref name="polyline"/> comes closer to
+        /// <paramref name="point"/> than the offset magnitude less
+        /// <paramref name="offsetTol"/>; otherwise <see langword="false"/>.
+        /// </returns>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="aabbIndex"/> or <paramref name="queryStack"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool PointValidForOffset<T>(
             IPlineSource<T> polyline,
@@ -758,6 +816,10 @@ namespace CavalierContours.Polyline
             T offsetTol)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(aabbIndex);
+            ArgumentNullException.ThrowIfNull(queryStack);
+
             T absOffset = T.Abs(offset) - offsetTol;
             T minDist = absOffset * absOffset;
             var visitor = new PointValidForOffsetVisitor<T>(polyline, minDist, point, posEqualEps);
@@ -881,6 +943,35 @@ namespace CavalierContours.Polyline
             return visitor.HasIntersect;
         }
 
+        /// <summary>
+        /// Cuts the raw offset polyline of a closed input at its self intersections and keeps only
+        /// the pieces that hold the required distance to the original polyline.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="originalPolyline">The polyline that was offset.</param>
+        /// <param name="rawOffsetPolyline">
+        /// The raw offset polyline from
+        /// <see cref="CreateRawOffsetPolyline{O, T}(IPlineSource{T}, T, T)"/>.
+        /// </param>
+        /// <param name="origPolylineIndex">
+        /// Spatial index over the segment bounding boxes of <paramref name="originalPolyline"/>.
+        /// </param>
+        /// <param name="offset">The offset distance used, needed for the validity test.</param>
+        /// <param name="options">
+        /// Epsilons; <see cref="PlineOffsetOptions{T}.PosEqualEps"/> and
+        /// <see cref="PlineOffsetOptions{T}.OffsetDistEps"/> are used here.
+        /// </param>
+        /// <returns>
+        /// Views describing the valid slices of the raw offset polyline. Empty when the raw offset
+        /// has fewer than two vertexes.
+        /// </returns>
+        /// <remarks>
+        /// This is the cheaper of the two slicing strategies and is only correct when the input
+        /// polyline is closed and free of self intersects. Use
+        /// <see cref="SlicesFromDualRawOffsets{T}(IPlineSource{T}, IPlineSource{T}, IPlineSource{T}, StaticAABB2DIndex{T}, T, PlineOffsetOptions{T})"/>
+        /// otherwise.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="originalPolyline"/> or <paramref name="rawOffsetPolyline"/> or <paramref name="origPolylineIndex"/> or <paramref name="options"/> is null.</exception>
         public static List<PlineViewData<T>> SlicesFromRawOffset<T>(
             IPlineSource<T> originalPolyline,
             IPlineSource<T> rawOffsetPolyline,
@@ -889,6 +980,11 @@ namespace CavalierContours.Polyline
             PlineOffsetOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(originalPolyline);
+            ArgumentNullException.ThrowIfNull(rawOffsetPolyline);
+            ArgumentNullException.ThrowIfNull(origPolylineIndex);
+            ArgumentNullException.ThrowIfNull(options);
+
             var result = new List<PlineViewData<T>>();
             if (rawOffsetPolyline.VertexCount < 2)
             {
@@ -1139,6 +1235,36 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Cuts the raw offset polyline at its intersections with itself and with the raw offset
+        /// taken in the opposite direction, keeping only the pieces that hold the required distance
+        /// to the original polyline.
+        /// </summary>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="originalPolyline">The polyline that was offset.</param>
+        /// <param name="rawOffsetPolyline">The raw offset polyline for the requested offset.</param>
+        /// <param name="dualRawOffsetPolyline">
+        /// The raw offset polyline for the negated offset. Its intersections with the raw offset
+        /// expose the invalid loops that a single offset cannot detect.
+        /// </param>
+        /// <param name="origPolylineIndex">
+        /// Spatial index over the segment bounding boxes of <paramref name="originalPolyline"/>.
+        /// </param>
+        /// <param name="offset">The offset distance used, needed for the validity test.</param>
+        /// <param name="options">
+        /// Epsilons; <see cref="PlineOffsetOptions{T}.PosEqualEps"/> and
+        /// <see cref="PlineOffsetOptions{T}.OffsetDistEps"/> are used here.
+        /// </param>
+        /// <returns>
+        /// Views describing the valid slices of the raw offset polyline. Empty when the raw offset
+        /// has fewer than two vertexes.
+        /// </returns>
+        /// <remarks>
+        /// This is the general strategy, used for open polylines and whenever self intersects have
+        /// to be handled. It costs an extra raw offset and more intersection work than
+        /// <see cref="SlicesFromRawOffset{T}(IPlineSource{T}, IPlineSource{T}, StaticAABB2DIndex{T}, T, PlineOffsetOptions{T})"/>.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="originalPolyline"/> or <paramref name="rawOffsetPolyline"/> or <paramref name="dualRawOffsetPolyline"/> or <paramref name="origPolylineIndex"/> or <paramref name="options"/> is null.</exception>
         public static List<PlineViewData<T>> SlicesFromDualRawOffsets<T>(
             IPlineSource<T> originalPolyline,
             IPlineSource<T> rawOffsetPolyline,
@@ -1148,6 +1274,12 @@ namespace CavalierContours.Polyline
             PlineOffsetOptions<T> options)
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(originalPolyline);
+            ArgumentNullException.ThrowIfNull(rawOffsetPolyline);
+            ArgumentNullException.ThrowIfNull(dualRawOffsetPolyline);
+            ArgumentNullException.ThrowIfNull(origPolylineIndex);
+            ArgumentNullException.ThrowIfNull(options);
+
             var result = new List<PlineViewData<T>>();
             if (rawOffsetPolyline.VertexCount < 2)
             {
@@ -1372,6 +1504,37 @@ namespace CavalierContours.Polyline
             return result;
         }
 
+        /// <summary>
+        /// Connects the valid slices end to end into the final offset polylines.
+        /// </summary>
+        /// <typeparam name="O">Mutable polyline type to produce.</typeparam>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="rawOffsetPline">
+        /// The raw offset polyline the slice views refer to.
+        /// </param>
+        /// <param name="slices">The valid slices to stitch, as views into <paramref name="rawOffsetPline"/>.</param>
+        /// <param name="isClosed">
+        /// Whether the original input polyline was closed. Only then may a stitched result be
+        /// turned into a closed polyline.
+        /// </param>
+        /// <param name="origMaxIndex">
+        /// Highest slice start index that still belongs to the raw offset polyline, used to decide
+        /// which slices may be joined to which.
+        /// </param>
+        /// <param name="options">
+        /// Epsilons; <see cref="PlineOffsetOptions{T}.SliceJoinEps"/> and
+        /// <see cref="PlineOffsetOptions{T}.PosEqualEps"/> are used here.
+        /// </param>
+        /// <returns>
+        /// The stitched offset polylines. Empty when <paramref name="slices"/> is empty; a single
+        /// slice yields a single polyline, closed if its two ends meet.
+        /// </returns>
+        /// <remarks>
+        /// Slice end points are indexed spatially so that the continuation of each slice can be
+        /// found within <see cref="PlineOffsetOptions{T}.SliceJoinEps"/>. Slices that form a
+        /// closed circuit produce a closed polyline; leftover chains produce open ones.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="rawOffsetPline"/> or <paramref name="slices"/> or <paramref name="options"/> is null.</exception>
         public static List<O> StitchSlicesTogether<O, T>(
             IPlineSource<T> rawOffsetPline,
             IReadOnlyList<PlineViewData<T>> slices,
@@ -1381,6 +1544,10 @@ namespace CavalierContours.Polyline
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(rawOffsetPline);
+            ArgumentNullException.ThrowIfNull(slices);
+            ArgumentNullException.ThrowIfNull(options);
+
             var result = new List<O>();
             if (slices.Count == 0)
             {
@@ -1589,10 +1756,58 @@ namespace CavalierContours.Polyline
             }
         }
 
+        /// <summary>
+        /// Computes the parallel offset of a polyline: the set of polylines at constant distance
+        /// <paramref name="offset"/> from the input, with all self intersecting and collapsed parts
+        /// removed.
+        /// </summary>
+        /// <typeparam name="O">Mutable polyline type to produce.</typeparam>
+        /// <typeparam name="T">Floating point type used for the coordinates.</typeparam>
+        /// <param name="polyline">
+        /// The polyline to offset. It may be open or closed and may contain arc segments.
+        /// </param>
+        /// <param name="offset">
+        /// The offset distance. A positive value offsets to the left of the segment tangent
+        /// vectors, a negative value to the right. For a counter-clockwise closed polyline a
+        /// positive value therefore offsets inward.
+        /// </param>
+        /// <param name="options">
+        /// Algorithm parameters:
+        /// <see cref="PlineOffsetOptions{T}.AabbIndex"/> supplies a prebuilt spatial index of the
+        /// input segments and is computed internally when <see langword="null"/>;
+        /// <see cref="PlineOffsetOptions{T}.HandleSelfIntersects"/> turns on the more expensive
+        /// path that offsets a self intersecting input correctly;
+        /// <see cref="PlineOffsetOptions{T}.PosEqualEps"/>,
+        /// <see cref="PlineOffsetOptions{T}.SliceJoinEps"/> and
+        /// <see cref="PlineOffsetOptions{T}.OffsetDistEps"/> control the fuzzy comparisons for
+        /// position equality, slice joining and slice distance validation.
+        /// </param>
+        /// <returns>
+        /// The resulting offset polylines. There may be none, one, or several: one input loop can
+        /// split into multiple loops, and an offset that consumes the whole shape produces an empty
+        /// list. Each result carries over the user data values of the input. A polyline with fewer
+        /// than two vertexes, or one that has fewer than two left after repeated positions are
+        /// removed, yields an empty list rather than an error.
+        /// </returns>
+        /// <remarks>
+        /// The algorithm works in three stages. First every segment is offset on its own and the
+        /// neighbouring pieces are reconnected, by a join where they still meet and by a connecting
+        /// arc where the offset opened a gap; this raw offset polyline is generally self
+        /// intersecting. Second the raw offset is cut at its self intersections, and for open or
+        /// self intersecting inputs also at its intersections with the raw offset in the opposite
+        /// direction, and each resulting slice is discarded unless its sampled midpoints keep the
+        /// full offset distance from the original polyline. Third the surviving slices are stitched
+        /// back together end to end into closed or open polylines. Repeated positions in the input
+        /// are removed up front, since duplicate vertexes have no tangent to offset along.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="polyline"/> or <paramref name="options"/> is null.</exception>
         public static List<O> ParallelOffset<O, T>(IPlineSource<T> polyline, T offset, PlineOffsetOptions<T> options)
             where O : IPlineSourceMut<T>, new()
             where T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>
         {
+            ArgumentNullException.ThrowIfNull(polyline);
+            ArgumentNullException.ThrowIfNull(options);
+
             if (polyline.VertexCount < 2)
             {
                 return new List<O>();

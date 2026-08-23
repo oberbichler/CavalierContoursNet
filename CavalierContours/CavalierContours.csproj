@@ -13,13 +13,17 @@
     <PackageTags>polyline;offset;boolean;geometry;2d;cavalier-contours</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- TODO(Plan 4): remove once all public members are documented. -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>CavalierContours.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
