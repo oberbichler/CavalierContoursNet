@@ -145,5 +145,26 @@ namespace CavalierContours.Tests
             Assert.Equal(0, index);
             Assert.True(pt.FuzzyEq(new Vector2<double>(0.5, -0.5)));
         }
+
+        [Fact]
+        public void SetUserDataValuesFromOwnValuesKeepsData()
+        {
+            var pline = new Polyline<double>(true);
+            pline.SetUserDataValues(new ulong[] { 1, 2, 3 });
+
+            pline.SetUserDataValues(pline.UserDataValues);
+
+            Assert.Equal(3, pline.UserDataCount);
+            Assert.Equal(new ulong[] { 1, 2, 3 }, pline.UserDataValues);
+        }
+
+        [Fact]
+        public void UserDataValuesIsNotCastableToMutableList()
+        {
+            var pline = new Polyline<double>(true);
+            pline.SetUserDataValues(new ulong[] { 7 });
+
+            Assert.IsNotType<System.Collections.Generic.List<ulong>>(pline.UserDataValues);
+        }
     }
 }

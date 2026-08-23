@@ -15,7 +15,7 @@ namespace CavalierContours.Polyline
         bool IsClosed { get; }
         PlineVertex<T> Get(int index);
         int UserDataCount { get; }
-        IEnumerable<ulong> UserDataValues { get; }
+        IReadOnlyList<ulong> UserDataValues { get; }
     }
 
     public interface IPlineSourceMut<T> : IPlineSource<T>

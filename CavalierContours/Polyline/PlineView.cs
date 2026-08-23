@@ -23,7 +23,7 @@ namespace CavalierContours.Polyline
         public bool IsClosed => false;
 
         public int UserDataCount => Source.UserDataCount;
-        public IEnumerable<ulong> UserDataValues => Source.UserDataValues;
+        public IReadOnlyList<ulong> UserDataValues => Source.UserDataValues;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PlineVertex<T> Get(int index)

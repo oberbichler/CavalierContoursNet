@@ -39,7 +39,7 @@ namespace CavalierContours.Polyline
         public int VertexCount => _vertexData.Count;
         public bool IsClosed => _isClosed;
         public int UserDataCount => _userdata.Count;
-        public IEnumerable<ulong> UserDataValues => _userdata;
+        public IReadOnlyList<ulong> UserDataValues => _userdata.AsReadOnly();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public PlineVertex<T> Get(int index) => _vertexData[index];
@@ -70,11 +70,13 @@ namespace CavalierContours.Polyline
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ExtendVertexes(IEnumerable<PlineVertex<T>> vertexes) => _vertexData.AddRange(vertexes);
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetUserDataValues(IEnumerable<ulong> values)
         {
+            ArgumentNullException.ThrowIfNull(values);
+            // Materialize first: 'values' may alias this instance's own backing list.
+            var snapshot = new List<ulong>(values);
             _userdata.Clear();
-            _userdata.AddRange(values);
+            _userdata.AddRange(snapshot);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
