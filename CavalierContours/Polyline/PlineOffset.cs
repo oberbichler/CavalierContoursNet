@@ -262,6 +262,22 @@ namespace CavalierContours.Polyline
                 {
                     case LineLineIntrKind.NoIntersect:
                         {
+                            // The parallel test above compares the unnormalized cross product with
+                            // posEqualEps, so short segments land here at turns of several degrees
+                            // (with the default posEqualEps, below about 5.7 degrees between two
+                            // segments of length 0.01). An outer turn
+                            // is joined like any other outer turn, with an arc about the shared
+                            // source vertex; a half circle across the small gap bulges far outside
+                            // the true offset. Reversals and inner turns keep the half circle.
+                            var v = v2.Pos() - v1.Pos();
+                            var u = u2.Pos() - u1.Pos();
+                            T turn = v.PerpDot(u);
+                            if (v.Dot(u) > T.Zero && turn != T.Zero && (turn > T.Zero) == connectionArcsCcw)
+                            {
+                                ConnectUsingArc(s1, s2, connectionArcsCcw, result, posEqualEps);
+                                break;
+                            }
+
                             var sp = s1.V2.Pos();
                             var ep = s2.V1.Pos();
                             T bulge = connectionArcsCcw ? T.One : -T.One;
@@ -963,7 +979,8 @@ namespace CavalierContours.Polyline
         /// </param>
         /// <returns>
         /// Views describing the valid slices of the raw offset polyline. Empty when the raw offset
-        /// has fewer than two vertexes.
+        /// has fewer than two vertexes, or when it does not cross itself and winds opposite to
+        /// <paramref name="originalPolyline"/>.
         /// </returns>
         /// <remarks>
         /// This is the cheaper of the two slicing strategies and is only correct when the input
@@ -1005,6 +1022,19 @@ namespace CavalierContours.Polyline
             var queryStack = new List<int>();
             if (selfIntrs.Count == 0)
             {
+                // Offsetting inward past the point where the shape vanishes can leave a raw
+                // offset that runs the other way round and never crosses itself, for example a
+                // thin triangle. Its first vertex may still be far enough from the source, so
+                // reject it by its winding: a valid offset of a closed polyline that does not
+                // cross itself keeps the source's orientation.
+                T originalArea = originalPolyline.Area();
+                T rawOffsetArea = rawOffsetPolyline.Area();
+                if ((originalArea > T.Zero && rawOffsetArea < T.Zero)
+                    || (originalArea < T.Zero && rawOffsetArea > T.Zero))
+                {
+                    return result;
+                }
+
                 if (!PointValidForOffset(
                     originalPolyline,
                     offset,

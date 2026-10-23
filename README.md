@@ -183,7 +183,19 @@ Parity is verified by a differential fuzz harness: both sides generate the same 
 shared deterministic PRNG, and area, path length and extents of every result are compared as raw
 IEEE 754 bit patterns. The current corpus is 3000 cases across five geometry classes, each run at
 scales x1, x1000 and x0.001, covering 28800 parallel offset calls and 2400 boolean calls. All
-113007 compared output lines are identical.
+113007 compared output lines are identical (measured before the two deviations below).
+
+Deliberate deviations from 0.8.0, where 0.8.0 returns a wrong offset and 0.9.0 does not:
+
+- Line-line joins: the parallel test compares the unnormalized cross product with
+  `PosEqualEps`, so two short segments count as parallel at turns of several degrees (below
+  about 5.7 degrees between segments of length 0.01). 0.8.0 joins such an outer turn with a half
+  circle across the gap; this port joins it with an arc about the shared source vertex, like any
+  other outer turn, as 0.9.0 does.
+- Closed offset without `HandleSelfIntersects`: a raw offset that does not cross itself is
+  rejected when it winds opposite to the input. Offset inward past the point where the shape
+  vanishes (a thin triangle, for example), 0.8.0 returns that inverted loop whole, crossing the
+  input; 0.9.0 returns nothing.
 
 Known differences from upstream `main` (0.9.0), which are **not** ported:
 
